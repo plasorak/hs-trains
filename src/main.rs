@@ -2,7 +2,7 @@ mod physics;
 mod model;
 
 use model::{DriverInput, TrainState, TrainDescription, Environment, Position};
-use physics::step_trains;
+use physics::{step_trains, advance_train, AdvanceTarget};
 use polars::prelude::*;
 
 fn main() {
@@ -65,6 +65,38 @@ fn main() {
     ).unwrap();
 
     let file = std::fs::File::create("simulation.parquet").unwrap();
-
     ParquetWriter::new(file).finish(&mut df).unwrap();
+
+    // --- advance_train simulation (coarse 100 s steps) ---
+    let dt_adv = 100.0_f64;
+    let n_adv = (2000.0 / dt_adv) as usize;
+
+    let mut time_adv:     Vec<f64> = Vec::new();
+    let mut speed_adv:    Vec<f64> = Vec::new();
+    let mut position_adv: Vec<f64> = Vec::new();
+
+    let mut state_adv = TrainState {
+        position: Position { x: 0., y: 0., z: 0. },
+        speed: 0.0,
+        acceleration: 0.0,
+    };
+
+    for step in 0..n_adv {
+        state_adv = advance_train(&state_adv, &params, &driver_input, &env, AdvanceTarget::Time(dt_adv));
+        time_adv.push((step + 1) as f64 * dt_adv);
+        speed_adv.push(state_adv.speed * 3.6);
+        position_adv.push(state_adv.position.x);
+    }
+
+    let mut df_adv = DataFrame::new(
+        time_adv.len(),
+        vec![
+            Series::new("time_s".into(),    &time_adv).into(),
+            Series::new("speed_kmh".into(), &speed_adv).into(),
+            Series::new("position_m".into(),&position_adv).into(),
+        ]
+    ).unwrap();
+
+    let file_adv = std::fs::File::create("simulation_advance.parquet").unwrap();
+    ParquetWriter::new(file_adv).finish(&mut df_adv).unwrap();
 }
