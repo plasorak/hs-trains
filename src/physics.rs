@@ -166,3 +166,88 @@ pub fn step_trains(state: &TrainState, params: &TrainDescription, driver: &Drive
         acceleration: acceleration,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::{DriverInput, Environment, Position, TrainDescription, TrainState};
+
+    fn test_params() -> TrainDescription {
+        TrainDescription {
+            power: 2_460_000.0,
+            traction_force_at_standstill: 409_000.0,
+            max_speed: 120.0,
+            mass: 2_000_000.0,
+            drag_coeff: 10.0,
+            braking_force: 800_000.0,
+        }
+    }
+
+    fn initial_state(speed: f64) -> TrainState {
+        TrainState { position: Position { x: 0.0, y: 0.0, z: 0.0 }, speed, acceleration: 0.0 }
+    }
+
+    /// Reference: run step_trains with fine 0.1 s steps for total_time seconds.
+    fn step_reference(s0: &TrainState, p: &TrainDescription, d: &DriverInput, e: &Environment, total_time: f64) -> TrainState {
+        let dt = 0.1;
+        let n = (total_time / dt).round() as usize;
+        let mut state = s0.clone();
+        for _ in 0..n { state = step_trains(&state, p, d, e, dt); }
+        state
+    }
+
+    fn assert_within(label: &str, result: &TrainState, reference: &TrainState) {
+        let speed_tol = 1.0_f64; // m/s
+        let pos_tol   = 5.0_f64; // m
+        let dv = (result.speed - reference.speed).abs();
+        let dx = (result.position.x - reference.position.x).abs();
+        assert!(dv < speed_tol,
+            "{label}: speed {:.4} vs ref {:.4} (diff {dv:.4} m/s)", result.speed, reference.speed);
+        assert!(dx < pos_tol,
+            "{label}: position {:.2} vs ref {:.2} (diff {dx:.2} m)", result.position.x, reference.position.x);
+    }
+
+    #[test]
+    fn test_accelerating_from_standstill() {
+        let p = test_params();
+        let d = DriverInput { power_ratio: 0.8, break_ratio: 0.0 };
+        let e = Environment { gradient: 0.0, wind_speed: 0.0 };
+        let s0 = initial_state(0.0);
+        assert_within("standstill",
+            &advance_train(&s0, &p, &d, &e, AdvanceTarget::Time(10.0)),
+            &step_reference(&s0, &p, &d, &e, 10.0));
+    }
+
+    #[test]
+    fn test_braking() {
+        let p = test_params();
+        let d = DriverInput { power_ratio: 0.0, break_ratio: 0.5 };
+        let e = Environment { gradient: 0.0, wind_speed: 0.0 };
+        let s0 = initial_state(20.0); // 72 km/h
+        assert_within("braking",
+            &advance_train(&s0, &p, &d, &e, AdvanceTarget::Time(10.0)),
+            &step_reference(&s0, &p, &d, &e, 10.0));
+    }
+
+    #[test]
+    fn test_positive_gradient() {
+        let p = test_params();
+        let d = DriverInput { power_ratio: 0.8, break_ratio: 0.0 };
+        let e = Environment { gradient: 0.02, wind_speed: 0.0 }; // 2% uphill
+        let s0 = initial_state(10.0);
+        assert_within("positive gradient",
+            &advance_train(&s0, &p, &d, &e, AdvanceTarget::Time(10.0)),
+            &step_reference(&s0, &p, &d, &e, 10.0));
+    }
+
+    #[test]
+    fn test_negative_gradient() {
+        let p = test_params();
+        let d = DriverInput { power_ratio: 0.8, break_ratio: 0.0 };
+        let e = Environment { gradient: -0.02, wind_speed: 0.0 }; // 2% downhill
+        let s0 = initial_state(10.0);
+        assert_within("negative gradient",
+            &advance_train(&s0, &p, &d, &e, AdvanceTarget::Time(10.0)),
+            &step_reference(&s0, &p, &d, &e, 10.0));
+    }
+}
