@@ -1,37 +1,9 @@
+use crate::model::{DriverInput, TrainState, TrainDescription, Environment, Position};
 
-#[derive(Debug,Clone)]
-pub struct DriverInput {
-    pub break_ratio: f64,
-    pub power_ratio: f64,
-}
-
-#[derive(Debug, Clone)]
-pub struct TrainState {
-    pub position: f64,  // meters
-    pub speed: f64,     // m/s
-    pub acceleration: f64,
-
-}
-
-#[derive(Debug, Clone)]
-pub struct TrainParams {
-    pub power: f64,       // Max Watts
-    pub traction_force_at_standstill: f64, // N
-    pub max_speed: f64,
-    pub mass: f64,        // kg
-    pub drag_coeff: f64,  // aerodynamic drag coefficient (kg/m), tune as needed
-    pub braking_force: f64, // Newtons, maximum braking force
-}
-
-#[derive(Debug, Clone)]
-pub struct Environment {
-    pub wind_speed: f64,
-    pub gradient: f64,    // rise/run (e.g. 0.01 = 1% grade)
-}
 
 const G: f64 = 9.81; // m/s²
 
-pub fn update(state: &TrainState, params: &TrainParams, driver: &DriverInput, env: &Environment, dt: f64) -> TrainState {
+pub fn step_trains(state: &TrainState, params: &TrainDescription, driver: &DriverInput, env: &Environment, dt: f64) -> TrainState {
     let speed = state.speed;
     let breaking = driver.break_ratio>0.0;
 
@@ -67,10 +39,10 @@ pub fn update(state: &TrainState, params: &TrainParams, driver: &DriverInput, en
         new_speed = max_speed_m_s;
     }
 
-    let new_position = state.position + speed * dt; // use old speed for position update
+    let new_position = state.position.x + speed * dt; // use old speed for position update
 
     TrainState {
-        position: new_position,
+        position: Position{x:new_position,y:0., z:0.},
         speed: new_speed,
         acceleration: acceleration,
     }

@@ -1,5 +1,8 @@
 mod physics;
-use physics::{DriverInput, TrainState, TrainParams, Environment, update};
+mod model;
+
+use model::{DriverInput, TrainState, TrainDescription, Environment, Position};
+use physics::step_trains;
 use polars::prelude::*;
 
 fn main() {
@@ -10,12 +13,12 @@ fn main() {
     let mut acceleration_data: Vec<f64> = Vec::new();
 
     let mut state = TrainState {
-        position: 0.0,
+        position: Position{x: 0., y: 0., z: 0.},
         speed: 0.0,
         acceleration: 0.0,
     };
 
-    let params = TrainParams {
+    let params = TrainDescription {
         power: 2_460_000.0,
         traction_force_at_standstill: 409_000.,
         max_speed: 120.,
@@ -34,18 +37,18 @@ fn main() {
         gradient: 0.01,
     };
 
-    let dt = 0.1; // 1 second time step
+    let dt = 0.1; // 0.1 second time step
 
     for step in 0..20_000 {
-        state = update(&state, &params, &driver_input, &env, dt);
+        state = step_trains(&state, &params, &driver_input, &env, dt);
         time_data.push(step as f64 * dt);
         speed_data.push(state.speed * 3.6);
-        position_data.push(state.position);
+        position_data.push(state.position.x);
         acceleration_data.push(state.acceleration);
         println!(
             "t={:>4}s  pos={:>8.1}m  speed={:.2} m/s ({:.1} km/h)",
             step as f64*dt,
-            state.position,
+            state.position.x,
             state.speed,
             state.speed * 3.6
         );
