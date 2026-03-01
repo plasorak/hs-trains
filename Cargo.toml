@@ -2,6 +2,7 @@
 name = "rusty-trains"
 version = "0.1.0"
 edition = "2024"
+license = "MIT"
 
 [dependencies]
 polars = { version = "0.53", features = ["parquet"] }
