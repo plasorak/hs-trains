@@ -1,102 +1,149 @@
 mod physics;
 mod model;
+mod timing;
 
-use model::{DriverInput, TrainState, TrainDescription, Environment, Position};
-use physics::{step_trains, advance_train, AdvanceTarget};
+use model::{SimulatedState, TrainDescription, Environment, DriverInput, Position, TrainState};
+use physics::step_trains;
 use polars::prelude::*;
+use clap::Parser;
+
+// ---------------------------------------------------------------------------
+// CLI
+// ---------------------------------------------------------------------------
+
+/// Train network simulator.
+///
+/// Runs either a physics-based simulation or replays real timing data,
+/// writing the result to a Parquet file.
+#[derive(Parser)]
+#[command(name = "rusty-trains", version)]
+struct Cli {
+    /// Path to the simulation config YAML file.
+    config: std::path::PathBuf,
+
+    /// Path to write the output Parquet file.
+    output: std::path::PathBuf,
+}
+
+// ---------------------------------------------------------------------------
+// Configuration structs (deserialized from YAML)
+// ---------------------------------------------------------------------------
+
+#[derive(serde::Deserialize)]
+struct Config {
+    simulation: SimulationConfig,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum SimulationConfig {
+    Physics {
+        train: TrainDescription,
+        environment: Environment,
+        driver: DriverInput,
+        time_step_s: f64,
+        duration_s: f64,
+    },
+    Timing {
+        parquet_file: String,
+        train_id: String,
+    },
+}
+
+// ---------------------------------------------------------------------------
+// Entry point
+// ---------------------------------------------------------------------------
 
 fn main() {
+    let cli = Cli::parse();
+    let config_path = &cli.config;
+    let output_path = &cli.output;
 
-    let mut time_data: Vec<f64> = Vec::new();
-    let mut speed_data: Vec<f64> = Vec::new();
-    let mut position_data: Vec<f64> = Vec::new();
-    let mut acceleration_data: Vec<f64> = Vec::new();
+    let config_str = std::fs::read_to_string(config_path)
+        .unwrap_or_else(|e| { eprintln!("Cannot read config '{}': {e}", config_path.display()); std::process::exit(1) });
+    let config: Config = serde_yaml_ng::from_str(&config_str)
+        .unwrap_or_else(|e| { eprintln!("Invalid config: {e}"); std::process::exit(1) });
 
-    let mut state = TrainState {
-        position: Position{x: 0., y: 0., z: 0.},
-        speed: 0.0,
-        acceleration: 0.0,
+    let mut df = match config.simulation {
+        SimulationConfig::Physics { train, environment, driver, time_step_s, duration_s } => {
+            println!("Running physics simulation (dt={time_step_s}s, duration={duration_s}s)");
+            run_physics(&train, &environment, &driver, time_step_s, duration_s)
+        }
+        SimulationConfig::Timing { parquet_file, train_id } => {
+            println!("Loading timing data for train '{train_id}' from '{parquet_file}'");
+            run_timing(&parquet_file, &train_id)
+        }
     };
 
-    let params = TrainDescription {
-        power: 2_460_000.0,
-        traction_force_at_standstill: 409_000.,
-        max_speed: 120.,
-        mass: 2_000_000.0,
-        drag_coeff: 10.0,
-        braking_force: 800_000.0,
-    };
-
-    let driver_input = DriverInput {
-        power_ratio: 0.8,
-        break_ratio: 0.0,
-    };
-
-    let env = Environment {
-        wind_speed: 0.,
-        gradient: 0.01,
-    };
-
-    let dt = 0.1; // 0.1 second time step
-
-    for step in 0..20_000 {
-        state = step_trains(&state, &params, &driver_input, &env, dt);
-        time_data.push(step as f64 * dt);
-        speed_data.push(state.speed * 3.6);
-        position_data.push(state.position.x);
-        acceleration_data.push(state.acceleration);
-        println!(
-            "t={:>4}s  pos={:>8.1}m  speed={:.2} m/s ({:.1} km/h)",
-            step as f64*dt,
-            state.position.x,
-            state.speed,
-            state.speed * 3.6
-        );
-    }
-
-    let mut df = DataFrame::new(
-        time_data.len(),
-        vec![
-            Series::new("time_s".into(), &time_data).into(),
-            Series::new("speed_kmh".into(), &speed_data).into(),
-            Series::new("position_m".into(), &position_data).into(),
-            Series::new("acceleration".into(), &acceleration_data).into(),
-        ]
-    ).unwrap();
-
-    let file = std::fs::File::create("simulation.parquet").unwrap();
+    let file = std::fs::File::create(output_path)
+        .unwrap_or_else(|e| { eprintln!("Cannot create '{}': {e}", output_path.display()); std::process::exit(1) });
     ParquetWriter::new(file).finish(&mut df).unwrap();
+    println!("Written {} rows to '{}'", df.height(), output_path.display());
+}
 
-    // --- advance_train simulation (coarse 100 s steps) ---
-    let dt_adv = 100.0_f64;
-    let n_adv = (2000.0 / dt_adv) as usize;
+// ---------------------------------------------------------------------------
+// Simulation runners
+// ---------------------------------------------------------------------------
 
-    let mut time_adv:     Vec<f64> = Vec::new();
-    let mut speed_adv:    Vec<f64> = Vec::new();
-    let mut position_adv: Vec<f64> = Vec::new();
+fn run_physics(
+    train: &TrainDescription,
+    env: &Environment,
+    driver: &DriverInput,
+    dt: f64,
+    duration: f64,
+) -> DataFrame {
+    let steps = (duration / dt).round() as usize;
+    let mut time_s_data       = Vec::with_capacity(steps);
+    let mut position_m_data   = Vec::with_capacity(steps);
+    let mut speed_kmh_data    = Vec::with_capacity(steps);
+    let mut accel_mss_data    = Vec::with_capacity(steps);
 
-    let mut state_adv = TrainState {
-        position: Position { x: 0., y: 0., z: 0. },
+    let mut state = SimulatedState {
+        position: Position { x: 0.0, y: 0.0, z: 0.0 },
         speed: 0.0,
         acceleration: 0.0,
     };
 
-    for step in 0..n_adv {
-        state_adv = advance_train(&state_adv, &params, &driver_input, &env, AdvanceTarget::Time(dt_adv));
-        time_adv.push((step + 1) as f64 * dt_adv);
-        speed_adv.push(state_adv.speed * 3.6);
-        position_adv.push(state_adv.position.x);
+    for step in 0..steps {
+        state = step_trains(&state, train, driver, env, dt);
+        time_s_data.push((step + 1) as f64 * dt);
+        position_m_data.push(state.position.x);
+        speed_kmh_data.push(state.speed * 3.6);
+        accel_mss_data.push(state.acceleration);
     }
 
-    let mut df_adv = DataFrame::new(
-        time_adv.len(),
+    DataFrame::new(
+        time_s_data.len(),
         vec![
-            Series::new("time_s".into(),    &time_adv).into(),
-            Series::new("speed_kmh".into(), &speed_adv).into(),
-            Series::new("position_m".into(),&position_adv).into(),
-        ]
-    ).unwrap();
+            Series::new("time_s".into(),          &time_s_data).into(),
+            Series::new("position_m".into(),       &position_m_data).into(),
+            Series::new("speed_kmh".into(),        &speed_kmh_data).into(),
+            Series::new("acceleration_mss".into(), &accel_mss_data).into(),
+        ],
+    ).unwrap()
+}
 
-    let file_adv = std::fs::File::create("simulation_advance.parquet").unwrap();
-    ParquetWriter::new(file_adv).finish(&mut df_adv).unwrap();
+fn run_timing(parquet_file: &str, train_id: &str) -> DataFrame {
+    let states = timing::load_timing_from_parquet(
+        std::path::Path::new(parquet_file),
+        train_id,
+    ).unwrap_or_else(|e| { eprintln!("Error loading timing data: {e}"); std::process::exit(1) });
+
+    let mut timestamp_ms_data = Vec::with_capacity(states.len());
+    let mut position_m_data   = Vec::with_capacity(states.len());
+
+    for state in &states {
+        if let TrainState::Observed(o) = state {
+            timestamp_ms_data.push(o.timestamp_ms);
+            position_m_data.push(o.position.x);
+        }
+    }
+
+    DataFrame::new(
+        timestamp_ms_data.len(),
+        vec![
+            Series::new("timestamp_ms".into(), &timestamp_ms_data).into(),
+            Series::new("position_m".into(),   &position_m_data).into(),
+        ],
+    ).unwrap()
 }
