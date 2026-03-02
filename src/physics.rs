@@ -1,4 +1,4 @@
-use crate::model::{DriverInput, TrainState, TrainDescription, Environment, Position};
+use crate::model::{DriverInput, SimulatedState, TrainDescription, Environment, Position};
 
 
 const G: f64 = 9.81; // m/s²
@@ -24,7 +24,7 @@ fn net_force_at_speed(v: f64, params: &TrainDescription, driver: &DriverInput, e
     traction_force - gravity_force - drag_force - rolling_resistance - braking_force
 }
 
-fn compute_acceleration(state: &TrainState, params: &TrainDescription, driver: &DriverInput, env: &Environment) -> f64 {
+fn compute_acceleration(state: &SimulatedState, params: &TrainDescription, driver: &DriverInput, env: &Environment) -> f64 {
     net_force_at_speed(state.speed, params, driver, env) / params.mass
 }
 
@@ -52,7 +52,7 @@ fn terminal_speed(v_lo: f64, v_hi: f64, params: &TrainDescription, driver: &Driv
 /// equilibrium speed where net force = 0.  When the projected speed would cross
 /// that point the motion is split into two phases — accelerate/decelerate to
 /// equilibrium, then cruise — exactly as is done for the track speed limit.
-pub fn advance_train(state: &TrainState, params: &TrainDescription, driver: &DriverInput, env: &Environment, target: AdvanceTarget) -> TrainState {
+pub fn advance_train(state: &SimulatedState, params: &TrainDescription, driver: &DriverInput, env: &Environment, target: AdvanceTarget) -> SimulatedState {
     let a    = compute_acceleration(state, params, driver, env);
     let v0   = state.speed;
     let x0   = state.position.x;
@@ -100,7 +100,7 @@ pub fn advance_train(state: &TrainState, params: &TrainDescription, driver: &Dri
             if v_sq <= 0.0 {
                 // Decelerating — train stops before covering dx.
                 let stop_dist = v0 * v0 / (2.0 * a.abs());
-                return TrainState {
+                return SimulatedState {
                     position: Position { x: x0 + stop_dist, y: 0.0, z: 0.0 },
                     speed: 0.0,
                     acceleration: a,
@@ -115,14 +115,14 @@ pub fn advance_train(state: &TrainState, params: &TrainDescription, driver: &Dri
         }
     };
 
-    TrainState {
+    SimulatedState {
         position: Position { x: new_position, y: 0.0, z: 0.0 },
         speed: new_speed,
         acceleration: a,
     }
 }
 
-pub fn step_trains(state: &TrainState, params: &TrainDescription, driver: &DriverInput, env: &Environment, dt: f64) -> TrainState {
+pub fn step_trains(state: &SimulatedState, params: &TrainDescription, driver: &DriverInput, env: &Environment, dt: f64) -> SimulatedState {
     let speed = state.speed;
     let breaking = driver.break_ratio>0.0;
 
@@ -160,7 +160,7 @@ pub fn step_trains(state: &TrainState, params: &TrainDescription, driver: &Drive
 
     let new_position = state.position.x + speed * dt; // use old speed for position update
 
-    TrainState {
+    SimulatedState {
         position: Position{x:new_position,y:0., z:0.},
         speed: new_speed,
         acceleration: acceleration,
@@ -170,7 +170,7 @@ pub fn step_trains(state: &TrainState, params: &TrainDescription, driver: &Drive
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{DriverInput, Environment, Position, TrainDescription, TrainState};
+    use crate::model::{DriverInput, Environment, Position, TrainDescription, SimulatedState};
 
     fn test_params() -> TrainDescription {
         TrainDescription {
@@ -183,12 +183,12 @@ mod tests {
         }
     }
 
-    fn initial_state(speed: f64) -> TrainState {
-        TrainState { position: Position { x: 0.0, y: 0.0, z: 0.0 }, speed, acceleration: 0.0 }
+    fn initial_state(speed: f64) -> SimulatedState {
+        SimulatedState { position: Position { x: 0.0, y: 0.0, z: 0.0 }, speed, acceleration: 0.0 }
     }
 
     /// Reference: run step_trains with fine 0.1 s steps for total_time seconds.
-    fn step_reference(s0: &TrainState, p: &TrainDescription, d: &DriverInput, e: &Environment, total_time: f64) -> TrainState {
+    fn step_reference(s0: &SimulatedState, p: &TrainDescription, d: &DriverInput, e: &Environment, total_time: f64) -> SimulatedState {
         let dt = 0.1;
         let n = (total_time / dt).round() as usize;
         let mut state = s0.clone();
@@ -196,7 +196,7 @@ mod tests {
         state
     }
 
-    fn assert_within(label: &str, result: &TrainState, reference: &TrainState) {
+    fn assert_within(label: &str, result: &SimulatedState, reference: &SimulatedState) {
         let speed_tol = 1.0_f64; // m/s
         let pos_tol   = 5.0_f64; // m
         let dv = (result.speed - reference.speed).abs();
