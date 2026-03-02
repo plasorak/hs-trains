@@ -1,4 +1,12 @@
 simulation:
-  type: timing
-  parquet_file: berth_timing.parquet   # path to the berth timing Parquet file
-  train_id: "1A23"                     # headcode / train identifier to load
+  time_step_s: 10.0                     # interpolation step (s)
+  duration_s:  3600.0                   # total simulated time (s)
+
+  trains:
+    - id: "1A23"
+      kind: timing
+      parquet_file: berth_timing.parquet  # path to the berth timing Parquet file
+
+    - id: "2B45"
+      kind: timing
+      parquet_file: berth_timing.parquet

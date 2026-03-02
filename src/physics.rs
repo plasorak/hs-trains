@@ -3,11 +3,13 @@ use crate::model::{DriverInput, SimulatedState, TrainDescription, Environment, P
 
 const G: f64 = 9.81; // m/s²
 
+#[allow(dead_code)]
 pub enum AdvanceTarget {
     Time(f64),     // seconds to advance
     Distance(f64), // metres to travel
 }
 
+#[allow(dead_code)]
 fn net_force_at_speed(v: f64, params: &TrainDescription, driver: &DriverInput, env: &Environment) -> f64 {
     let braking = driver.break_ratio > 0.0;
 
@@ -24,12 +26,14 @@ fn net_force_at_speed(v: f64, params: &TrainDescription, driver: &DriverInput, e
     traction_force - gravity_force - drag_force - rolling_resistance - braking_force
 }
 
+#[allow(dead_code)]
 fn compute_acceleration(state: &SimulatedState, params: &TrainDescription, driver: &DriverInput, env: &Environment) -> f64 {
     net_force_at_speed(state.speed, params, driver, env) / params.mass
 }
 
 /// Find the equilibrium speed (where net force = 0) in [v_lo, v_hi] via bisection.
 /// Returns None if no zero crossing exists in that interval.
+#[allow(dead_code)]
 fn terminal_speed(v_lo: f64, v_hi: f64, params: &TrainDescription, driver: &DriverInput, env: &Environment) -> Option<f64> {
     let f_lo = net_force_at_speed(v_lo, params, driver, env);
     let f_hi = net_force_at_speed(v_hi, params, driver, env);
@@ -52,6 +56,7 @@ fn terminal_speed(v_lo: f64, v_hi: f64, params: &TrainDescription, driver: &Driv
 /// equilibrium speed where net force = 0.  When the projected speed would cross
 /// that point the motion is split into two phases — accelerate/decelerate to
 /// equilibrium, then cruise — exactly as is done for the track speed limit.
+#[allow(dead_code)]
 pub fn advance_train(state: &SimulatedState, params: &TrainDescription, driver: &DriverInput, env: &Environment, target: AdvanceTarget) -> SimulatedState {
     let a    = compute_acceleration(state, params, driver, env);
     let v0   = state.speed;
@@ -150,8 +155,6 @@ pub fn step_trains(state: &SimulatedState, params: &TrainDescription, driver: &D
 
     // --- Kinematics (Euler integration) ---
     let acceleration = net_force / params.mass;
-    println!("traction force: {}, acceleration: {}", traction_force, acceleration);
-
     let mut new_speed = (speed + acceleration * dt).max(0.0); // can't go negative
     let max_speed_m_s = params.max_speed / 3.6;
     if new_speed>max_speed_m_s {

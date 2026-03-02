@@ -1,9 +1,10 @@
 simulation:
   time_step_s: 0.1                      # integration step (s)
-  duration_s:  2000.0                   # total simulated time (s)
+  duration_s:  3600.0                   # total simulated time (s)
 
   trains:
-    - id: "train_1"
+    # Physics train — fully simulated from Newton's equations.
+    - id: "simulated_express"
       kind: physics
       train:
         power: 2460000.0                    # W  (max traction power)
@@ -19,18 +20,13 @@ simulation:
         power_ratio: 0.8                    # 0–1 throttle
         break_ratio: 0.0                    # 0–1 braking
 
-    - id: "train_2"
-      kind: physics
-      train:
-        power: 2460000.0
-        traction_force_at_standstill: 409000.0
-        max_speed: 100.0
-        mass: 1500000.0
-        drag_coeff: 8.0
-        braking_force: 600000.0
-      environment:
-        gradient: 0.0
-        wind_speed: 5.0                     # m/s head-wind
-      driver:
-        power_ratio: 1.0
-        break_ratio: 0.0
+    # Timing trains — positions interpolated from real berth timing data.
+    # Timestamps are normalised to t=0 at the first record.
+    # speed_kmh and acceleration_mss are null in the output for these trains.
+    - id: "1A23"
+      kind: timing
+      parquet_file: berth_timing.parquet
+
+    - id: "2B45"
+      kind: timing
+      parquet_file: berth_timing.parquet
