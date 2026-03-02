@@ -1,5 +1,5 @@
 simulation:
-  time_step_s: 0.1                      # integration step (s)
+  time_step_s: 30.0                     # integration step (s)
   duration_s:  2000.0                   # total simulated time (s)
 
   trains:

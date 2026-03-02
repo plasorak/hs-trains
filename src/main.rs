@@ -1,9 +1,10 @@
 mod physics;
 mod model;
 mod timing;
+mod scheduler;
 
 use model::{SimulatedState, TrainDescription, Environment, DriverInput, Position};
-use physics::step_trains;
+use physics::{advance_train, AdvanceTarget};
 use timing::TimingTrace;
 use polars::prelude::*;
 use clap::Parser;
@@ -133,14 +134,17 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
     // Pre-cache IDs as &str slices — avoids per-step String allocations in the hot loop.
     let train_id_cache: Vec<&str> = trains.iter().map(|c| c.id()).collect();
 
-    let mut time_s_data     = Vec::<f64>::with_capacity(buf_cap);
-    let mut position_m_data = Vec::<Option<f64>>::with_capacity(buf_cap);
-    let mut speed_kmh_data  = Vec::<Option<f64>>::with_capacity(buf_cap);
-    let mut accel_mss_data  = Vec::<Option<f64>>::with_capacity(buf_cap);
+    let mut train_id_data    = Vec::<&str>::with_capacity(buf_cap);
+    let mut event_kind_data  = Vec::<&'static str>::with_capacity(buf_cap);
+    let mut time_s_data      = Vec::<f64>::with_capacity(buf_cap);
+    let mut position_m_data  = Vec::<Option<f64>>::with_capacity(buf_cap);
+    let mut speed_kmh_data   = Vec::<Option<f64>>::with_capacity(buf_cap);
+    let mut accel_mss_data   = Vec::<Option<f64>>::with_capacity(buf_cap);
 
     // Fixed output schema — must match the Series built at flush time.
     let schema = Schema::from_iter([
         Field::new("train_id".into(),         DataType::String),
+        Field::new("event_kind".into(),       DataType::String),
         Field::new("time_s".into(),           DataType::Float64),
         Field::new("position_m".into(),       DataType::Float64),
         Field::new("speed_kmh".into(),        DataType::Float64),
@@ -169,6 +173,58 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
         }
     }).collect();
 
+    // -----------------------------------------------------------------------
+    // Build the event queue
+    // -----------------------------------------------------------------------
+
+    let mut queue = scheduler::EventQueue::new();
+
+    // Seed only the first physics tick — subsequent ticks are self-scheduled
+    // from inside the event loop, keeping the queue small at all times.
+    queue.push(dt, None, scheduler::EventKind::PhysicsTick);
+
+    // Seed random placeholder events. Each carries an EntityRef so the
+    // dispatch code can route it to the right object later.
+    {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let n_trains = trains.len().max(1);
+        let n_random = steps / 10;
+        for _ in 0..n_random {
+            let t = rng.gen_range(0.0f64..duration);
+            let (target, kind) = match rng.gen_range(0u8..4) {
+                0 => (
+                    Some(scheduler::EntityRef::Train(rng.gen_range(0..n_trains))),
+                    scheduler::EventKind::Random(scheduler::RandomEventKind::Departure),
+                ),
+                1 => (
+                    Some(scheduler::EntityRef::Train(rng.gen_range(0..n_trains))),
+                    scheduler::EventKind::Random(scheduler::RandomEventKind::Arrival),
+                ),
+                2 => (
+                    Some(scheduler::EntityRef::Signal(rng.gen_range(0..100usize))),
+                    scheduler::EventKind::Random(scheduler::RandomEventKind::SignalChange),
+                ),
+                _ => (
+                    Some(scheduler::EntityRef::Train(rng.gen_range(0..n_trains))),
+                    scheduler::EventKind::Random(scheduler::RandomEventKind::SpeedChange {
+                        new_speed_kmh: rng.gen_range(0.0f64..120.0),
+                    }),
+                ),
+            };
+            queue.push(t, target, kind);
+        }
+        println!("Event queue seeded: 1 initial physics tick (self-scheduling) + {n_random} random placeholder events");
+    }
+
+    // -----------------------------------------------------------------------
+    // Event-driven simulation loop
+    // -----------------------------------------------------------------------
+
+    // Last simulation time at which each train's state was computed.
+    // Random events advance a single train from here to the event time.
+    let mut last_times: Vec<f64> = vec![0.0; trains.len()];
+
     let mut total_rows: usize = 0;
 
     let pb = ProgressBar::new(steps as u64);
@@ -180,62 +236,144 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
         .progress_chars("█▉▊▋▌▍▎▏ "),
     );
 
-    for step in 0..steps {
-        let t = (step + 1) as f64 * dt;
+    while let Some(event) = queue.pop() {
+        // Hard time bound: discard any event (including stray ticks) past the
+        // simulation end. This is the primary stop condition for the loop.
+        if event.time > duration { break; }
 
-        // Parallel physics step: each train is independent, so Rayon gives
-        // ~N_cores speedup on the dominant CPU work.
-        let step_results: Vec<(Option<f64>, Option<f64>, Option<f64>)> =
-            trains.par_iter().zip(states.par_iter_mut()).map(|(cfg, state)| {
-                match (cfg, state) {
-                    (TrainConfig::Physics { train, environment, driver, .. }, SimState::Physics(s)) => {
-                        *s = step_trains(s, train, driver, environment, dt);
-                        (Some(s.position.x), Some(s.speed * 3.6), Some(s.acceleration))
-                    }
-                    (TrainConfig::Timing { .. }, SimState::Timing(trace)) => {
-                        (trace.position_at(t), None, None)
-                    }
-                    _ => unreachable!(),
+        match event.kind {
+            scheduler::EventKind::PhysicsTick => {
+                let t = event.time;
+
+                // Schedule the next tick only if it is still within the simulation
+                // window AND there is meaningful work left: either a train is still
+                // moving, or pending events could change the state (e.g. a future
+                // SpeedChange waking a stopped train).
+                let any_moving = states.iter().any(|s| match s {
+                    SimState::Physics(p) => p.speed > 0.0,
+                    SimState::Timing(_)  => true, // timing traces may still have data
+                });
+                if t + dt <= duration && (any_moving || !queue.is_empty()) {
+                    queue.push(t + dt, None, scheduler::EventKind::PhysicsTick);
                 }
-            }).collect();
 
-        for (pos, spd, acc) in step_results {
-            time_s_data.push(t);
-            position_m_data.push(pos);
-            speed_kmh_data.push(spd);
-            accel_mss_data.push(acc);
+                // Each train advances from its last-known time to t (may differ if
+                // random events have advanced individual trains in between).
+                let step_results: Vec<(Option<f64>, Option<f64>, Option<f64>)> =
+                    trains.par_iter()
+                        .zip(states.par_iter_mut())
+                        .zip(last_times.par_iter())
+                        .map(|((cfg, state), &lt)| {
+                            let dt_i = t - lt;
+                            match (cfg, state) {
+                                (TrainConfig::Physics { train, environment, driver, .. }, SimState::Physics(s)) => {
+                                    if dt_i > 0.0 {
+                                        *s = advance_train(s, train, driver, environment, AdvanceTarget::Time(dt_i));
+                                    }
+                                    (Some(s.position.x), Some(s.speed * 3.6), Some(s.acceleration))
+                                }
+                                (TrainConfig::Timing { .. }, SimState::Timing(trace)) => {
+                                    (trace.position_at(t), None, None)
+                                }
+                                _ => unreachable!(),
+                            }
+                        })
+                        .collect();
+
+                last_times.iter_mut().for_each(|lt| *lt = t);
+
+                for (i, (pos, spd, acc)) in step_results.into_iter().enumerate() {
+                    train_id_data.push(train_id_cache[i]);
+                    event_kind_data.push("physics_tick");
+                    time_s_data.push(t);
+                    position_m_data.push(pos);
+                    speed_kmh_data.push(spd);
+                    accel_mss_data.push(acc);
+                }
+
+                pb.inc(1);
+            }
+
+            scheduler::EventKind::Random(kind) => {
+                let t = event.time;
+                let kind_str: &'static str = match kind {
+                    scheduler::RandomEventKind::Departure          => "departure",
+                    scheduler::RandomEventKind::Arrival            => "arrival",
+                    scheduler::RandomEventKind::SignalChange        => "signal_change",
+                    scheduler::RandomEventKind::SpeedChange { .. } => "speed_change",
+                };
+                // Advance the targeted train to this event's time and record its state.
+                if let Some(scheduler::EntityRef::Train(i)) = event.target {
+                    if i < trains.len() {
+                        let dt_i = t - last_times[i];
+                        if dt_i > 0.0 {
+                            let (pos, spd, acc) = match (&trains[i], &mut states[i]) {
+                                (TrainConfig::Physics { train, environment, driver, .. }, SimState::Physics(s)) => {
+                                    *s = advance_train(s, train, driver, environment, AdvanceTarget::Time(dt_i));
+                                    (Some(s.position.x), Some(s.speed * 3.6), Some(s.acceleration))
+                                }
+                                (TrainConfig::Timing { .. }, SimState::Timing(trace)) => {
+                                    (trace.position_at(t), None, None)
+                                }
+                                _ => unreachable!(),
+                            };
+                            last_times[i] = t;
+                            train_id_data.push(train_id_cache[i]);
+                            event_kind_data.push(kind_str);
+                            time_s_data.push(t);
+                            position_m_data.push(pos);
+                            speed_kmh_data.push(spd);
+                            accel_mss_data.push(acc);
+                        }
+                    }
+                }
+                // Signal events don't produce rows yet.
+            }
         }
 
-        if time_s_data.len() >= flush_rows || step + 1 == steps {
-            // Build the train_id column by cycling the cached &str over the accumulated rows.
-            let train_id_col: Vec<&str> = train_id_cache.iter().copied()
-                .cycle()
-                .take(time_s_data.len())
-                .collect();
+        if time_s_data.len() >= flush_rows {
             let n = time_s_data.len();
             let batch = DataFrame::new(
                 n,
                 vec![
-                    Series::new("train_id".into(),         &train_id_col).into(),
+                    Series::new("train_id".into(),         &train_id_data).into(),
+                    Series::new("event_kind".into(),        &event_kind_data).into(),
                     Series::new("time_s".into(),            &time_s_data).into(),
                     Series::new("position_m".into(),        &position_m_data).into(),
                     Series::new("speed_kmh".into(),         &speed_kmh_data).into(),
                     Series::new("acceleration_mss".into(),  &accel_mss_data).into(),
                 ],
             ).unwrap();
-
             writer.write_batch(&batch)
-                .unwrap_or_else(|e| { eprintln!("Write error at step {step}: {e}"); std::process::exit(1) });
+                .unwrap_or_else(|e| { eprintln!("Write error: {e}"); std::process::exit(1) });
             total_rows += n;
             pb.println(format!("  flushed {n} rows (total: {total_rows})"));
-
+            train_id_data.clear();
+            event_kind_data.clear();
             time_s_data.clear();
             position_m_data.clear();
             speed_kmh_data.clear();
             accel_mss_data.clear();
         }
+    }
 
-        pb.inc(1);
+    // Final flush: covers both normal queue exhaustion and the time-limit break.
+    if !time_s_data.is_empty() {
+        let n = time_s_data.len();
+        let batch = DataFrame::new(
+            n,
+            vec![
+                Series::new("train_id".into(),         &train_id_data).into(),
+                Series::new("time_s".into(),            &time_s_data).into(),
+                Series::new("position_m".into(),        &position_m_data).into(),
+                Series::new("speed_kmh".into(),         &speed_kmh_data).into(),
+                Series::new("acceleration_mss".into(),  &accel_mss_data).into(),
+            ],
+        ).unwrap();
+        writer.write_batch(&batch)
+            .unwrap_or_else(|e| { eprintln!("Write error (final flush): {e}"); std::process::exit(1) });
+        total_rows += n;
+        pb.println(format!("  flushed {n} rows (total: {total_rows})"));
     }
 
     pb.finish_and_clear();
