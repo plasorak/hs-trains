@@ -1,4 +1,0 @@
-simulation:
-  type: timing
-  parquet_file: berth_timing.parquet   # path to the berth timing Parquet file
-  train_id: "1A23"                     # headcode / train identifier to load
