@@ -7,6 +7,7 @@ use physics::step_trains;
 use timing::TimingTrace;
 use polars::prelude::*;
 use clap::Parser;
+use indicatif::{ProgressBar, ProgressStyle};
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -163,6 +164,15 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
 
     let mut total_rows: usize = 0;
 
+    let pb = ProgressBar::new(steps as u64);
+    pb.set_style(
+        ProgressStyle::with_template(
+            "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} steps ({percent}%) ETA: {eta}"
+        )
+        .unwrap()
+        .progress_chars("█▉▊▋▌▍▎▏ "),
+    );
+
     for step in 0..steps {
         let t = (step + 1) as f64 * dt;
 
@@ -202,7 +212,7 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
             writer.write_batch(&batch)
                 .unwrap_or_else(|e| { eprintln!("Write error at step {step}: {e}"); std::process::exit(1) });
             total_rows += n;
-            println!("  flushed {n} rows (total: {total_rows})");
+            pb.println(format!("  flushed {n} rows (total: {total_rows})", ));
 
             train_id_data.clear();
             time_s_data.clear();
@@ -210,8 +220,11 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
             speed_kmh_data.clear();
             accel_mss_data.clear();
         }
+
+        pb.inc(1);
     }
 
+    pb.finish_and_clear();
     writer.finish()
         .unwrap_or_else(|e| { eprintln!("Failed to finalise Parquet file: {e}"); std::process::exit(1) });
     println!("Written {total_rows} rows to '{}'", output.display());
