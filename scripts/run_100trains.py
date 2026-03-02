@@ -67,6 +67,7 @@ def main(
     dt: Annotated[float, typer.Option(help="Time step in seconds")] = 1.0,
     duration: Annotated[float, typer.Option(help="Simulation duration in hours")] = 1.0,
     seed: Annotated[int, typer.Option(help="Random seed for reproducibility")] = SEED,
+    flush_rows: Annotated[int, typer.Option(help="Max rows buffered before a Parquet flush")] = 1_000_000,
 ) -> None:
     """Generate a physics config for N trains and print the command to run it."""
     rng = random.Random(seed)
@@ -75,6 +76,7 @@ def main(
         "simulation": {
             "time_step_s": dt,
             "duration_s": duration * 3_600,
+            "flush_rows": flush_rows,
             "trains": [make_train(i, rng) for i in range(1, trains + 1)],
         }
     }
@@ -84,7 +86,8 @@ def main(
     expected_rows = int(duration * 3_600 / dt) * trains
     typer.echo(
         f"Wrote {config}  "
-        f"({trains} trains, {duration}h @ {dt}s steps, ~{expected_rows:,} output rows)"
+        f"({trains} trains, {duration}h @ {dt}s steps, ~{expected_rows:,} output rows, "
+        f"flush every {flush_rows:,} rows)"
     )
 
     typer.echo("\nTo run the simulation:")

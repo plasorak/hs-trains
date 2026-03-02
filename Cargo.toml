@@ -10,3 +10,4 @@ serde        = { version = "1",    features = ["derive"] }
 serde_yaml_ng = "0.9"
 clap         = { version = "4",    features = ["derive"] }
 indicatif    = "0.17"
+rayon        = "1"

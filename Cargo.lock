@@ -2566,6 +2566,7 @@ dependencies = [
  "clap",
  "indicatif",
  "polars",
+ "rayon",
  "serde",
  "serde_yaml_ng",
 ]
