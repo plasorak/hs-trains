@@ -7,6 +7,8 @@ use physics::step_trains;
 use timing::TimingTrace;
 use polars::prelude::*;
 use clap::Parser;
+use indicatif::{ProgressBar, ProgressStyle};
+use rayon::prelude::*;
 
 // ---------------------------------------------------------------------------
 // CLI
@@ -60,18 +62,18 @@ impl TrainConfig {
     }
 }
 
-fn default_flush_steps() -> usize { 10_000 }
+fn default_flush_rows() -> usize { 1_000_000 }
 
 #[derive(serde::Deserialize)]
 struct SimulationConfig {
     time_step_s: f64,
     duration_s: f64,
     trains: Vec<TrainConfig>,
-    /// Number of time steps between Parquet row-group flushes.
-    /// Smaller values reduce peak memory use at the cost of more I/O.
-    /// Defaults to 10 000.
-    #[serde(default = "default_flush_steps")]
-    flush_steps: usize,
+    /// Maximum number of rows to buffer before flushing a Parquet row group.
+    /// Row-based (not step-based) so the buffer size stays bounded regardless
+    /// of the number of trains. Defaults to 1 000 000.
+    #[serde(default = "default_flush_rows")]
+    flush_rows: usize,
 }
 
 // ---------------------------------------------------------------------------
@@ -90,11 +92,11 @@ fn main() {
 
     let sim = config.simulation;
     println!(
-        "Running simulation: {} train(s), dt={}s, duration={}s, flush every {} steps",
-        sim.trains.len(), sim.time_step_s, sim.duration_s, sim.flush_steps
+        "Running simulation: {} train(s), dt={}s, duration={}s, flush every {} rows",
+        sim.trains.len(), sim.time_step_s, sim.duration_s, sim.flush_rows
     );
 
-    run_simulation(&sim.trains, sim.time_step_s, sim.duration_s, output_path, sim.flush_steps);
+    run_simulation(&sim.trains, sim.time_step_s, sim.duration_s, output_path, sim.flush_rows);
 }
 
 // ---------------------------------------------------------------------------
@@ -112,8 +114,10 @@ enum SimState {
 /// Time is the outer loop: every train is advanced for each time step before
 /// moving to the next step. Physics and timing trains may be freely mixed.
 ///
-/// In-memory buffers hold at most `flush_steps * n_trains` rows at a time;
-/// they are written as a row group and cleared on every flush boundary.
+/// Per-step physics is parallelised with Rayon across all trains.
+///
+/// In-memory buffers hold at most `flush_rows` rows at a time; they are
+/// written as a row group and cleared on every flush boundary.
 ///
 /// Output columns:
 /// - `train_id`         — string identifier
@@ -122,17 +126,19 @@ enum SimState {
 ///                        is outside its data range)
 /// - `speed_kmh`        — speed in km/h (null for timing trains)
 /// - `acceleration_mss` — acceleration in m/s² (null for timing trains)
-fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::path::Path, flush_steps: usize) {
+fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::path::Path, flush_rows: usize) {
     let steps = (duration / dt).round() as usize;
-    let buf_cap = flush_steps * trains.len();
+    let buf_cap = flush_rows.min(steps * trains.len());
 
-    let mut train_id_data   = Vec::<String>::with_capacity(buf_cap);
+    // Pre-cache IDs as &str slices — avoids per-step String allocations in the hot loop.
+    let train_id_cache: Vec<&str> = trains.iter().map(|c| c.id()).collect();
+
     let mut time_s_data     = Vec::<f64>::with_capacity(buf_cap);
     let mut position_m_data = Vec::<Option<f64>>::with_capacity(buf_cap);
     let mut speed_kmh_data  = Vec::<Option<f64>>::with_capacity(buf_cap);
     let mut accel_mss_data  = Vec::<Option<f64>>::with_capacity(buf_cap);
 
-    // Fixed output schema — must match the Series built in flush_batch().
+    // Fixed output schema — must match the Series built at flush time.
     let schema = Schema::from_iter([
         Field::new("train_id".into(),         DataType::String),
         Field::new("time_s".into(),           DataType::Float64),
@@ -144,6 +150,8 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
     let file = std::fs::File::create(output)
         .unwrap_or_else(|e| { eprintln!("Cannot create '{}': {e}", output.display()); std::process::exit(1) });
     let mut writer = ParquetWriter::new(file)
+        .with_compression(ParquetCompression::Lz4Raw)
+        .set_parallel(true)
         .batched(&schema)
         .unwrap_or_else(|e| { eprintln!("Cannot initialise Parquet writer: {e}"); std::process::exit(1) });
 
@@ -163,34 +171,52 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
 
     let mut total_rows: usize = 0;
 
+    let pb = ProgressBar::new(steps as u64);
+    pb.set_style(
+        ProgressStyle::with_template(
+            "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} steps ({percent}%) ETA: {eta}"
+        )
+        .unwrap()
+        .progress_chars("█▉▊▋▌▍▎▏ "),
+    );
+
     for step in 0..steps {
         let t = (step + 1) as f64 * dt;
 
-        for (cfg, state) in trains.iter().zip(states.iter_mut()) {
-            train_id_data.push(cfg.id().to_string());
-            time_s_data.push(t);
+        // Parallel physics step: each train is independent, so Rayon gives
+        // ~N_cores speedup on the dominant CPU work.
+        let step_results: Vec<(Option<f64>, Option<f64>, Option<f64>)> =
+            trains.par_iter().zip(states.par_iter_mut()).map(|(cfg, state)| {
+                match (cfg, state) {
+                    (TrainConfig::Physics { train, environment, driver, .. }, SimState::Physics(s)) => {
+                        *s = step_trains(s, train, driver, environment, dt);
+                        (Some(s.position.x), Some(s.speed * 3.6), Some(s.acceleration))
+                    }
+                    (TrainConfig::Timing { .. }, SimState::Timing(trace)) => {
+                        (trace.position_at(t), None, None)
+                    }
+                    _ => unreachable!(),
+                }
+            }).collect();
 
-            match (cfg, state) {
-                (TrainConfig::Physics { train, environment, driver, .. }, SimState::Physics(s)) => {
-                    *s = step_trains(s, train, driver, environment, dt);
-                    position_m_data.push(Some(s.position.x));
-                    speed_kmh_data.push(Some(s.speed * 3.6));
-                    accel_mss_data.push(Some(s.acceleration));
-                }
-                (TrainConfig::Timing { .. }, SimState::Timing(trace)) => {
-                    position_m_data.push(trace.position_at(t));
-                    speed_kmh_data.push(None);
-                    accel_mss_data.push(None);
-                }
-                _ => unreachable!(),
-            }
+        for (pos, spd, acc) in step_results {
+            time_s_data.push(t);
+            position_m_data.push(pos);
+            speed_kmh_data.push(spd);
+            accel_mss_data.push(acc);
         }
 
-        if (step + 1) % flush_steps == 0 || step + 1 == steps {
+        if time_s_data.len() >= flush_rows || step + 1 == steps {
+            // Build the train_id column by cycling the cached &str over the accumulated rows.
+            let train_id_col: Vec<&str> = train_id_cache.iter().copied()
+                .cycle()
+                .take(time_s_data.len())
+                .collect();
+            let n = time_s_data.len();
             let batch = DataFrame::new(
-                train_id_data.len(),
+                n,
                 vec![
-                    Series::new("train_id".into(),         &train_id_data).into(),
+                    Series::new("train_id".into(),         &train_id_col).into(),
                     Series::new("time_s".into(),            &time_s_data).into(),
                     Series::new("position_m".into(),        &position_m_data).into(),
                     Series::new("speed_kmh".into(),         &speed_kmh_data).into(),
@@ -198,20 +224,21 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
                 ],
             ).unwrap();
 
-            let n = batch.height();
             writer.write_batch(&batch)
                 .unwrap_or_else(|e| { eprintln!("Write error at step {step}: {e}"); std::process::exit(1) });
             total_rows += n;
-            println!("  flushed {n} rows (total: {total_rows})");
+            pb.println(format!("  flushed {n} rows (total: {total_rows})"));
 
-            train_id_data.clear();
             time_s_data.clear();
             position_m_data.clear();
             speed_kmh_data.clear();
             accel_mss_data.clear();
         }
+
+        pb.inc(1);
     }
 
+    pb.finish_and_clear();
     writer.finish()
         .unwrap_or_else(|e| { eprintln!("Failed to finalise Parquet file: {e}"); std::process::exit(1) });
     println!("Written {total_rows} rows to '{}'", output.display());
