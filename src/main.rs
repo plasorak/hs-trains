@@ -299,7 +299,7 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
                 let kind_str: &'static str = match kind {
                     scheduler::RandomEventKind::Departure          => "departure",
                     scheduler::RandomEventKind::Arrival            => "arrival",
-                    scheduler::RandomEventKind::SignalChange        => "signal_change",
+                    scheduler::RandomEventKind::SignalChange       => "signal_change",
                     scheduler::RandomEventKind::SpeedChange { .. } => "speed_change",
                 };
                 // Advance the targeted train to this event's time and record its state.
@@ -336,7 +336,7 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
             let batch = DataFrame::new(
                 n,
                 vec![
-                    Series::new("train_id".into(),         &train_id_data).into(),
+                    Series::new("train_id".into(),          &train_id_data).into(),
                     Series::new("event_kind".into(),        &event_kind_data).into(),
                     Series::new("time_s".into(),            &time_s_data).into(),
                     Series::new("position_m".into(),        &position_m_data).into(),
@@ -363,7 +363,7 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
         let batch = DataFrame::new(
             n,
             vec![
-                Series::new("train_id".into(),         &train_id_data).into(),
+                Series::new("train_id".into(),          &train_id_data).into(),
                 Series::new("time_s".into(),            &time_s_data).into(),
                 Series::new("position_m".into(),        &position_m_data).into(),
                 Series::new("speed_kmh".into(),         &speed_kmh_data).into(),
