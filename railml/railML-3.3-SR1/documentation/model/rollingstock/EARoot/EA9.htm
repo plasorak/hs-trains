@@ -1,0 +1,204 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>railML3_RS_Vehicle</title>
+<link href="../css/ea.css" rel="stylesheet" type="text/css" />
+<script language="JavaScript" src="../js/displayToc.js" type="text/javascript"></script>
+<script>
+
+  function switchProjectProperties() {
+			if (document.getElementById("proj00").style.display == "none") {
+				document.getElementById("proj00").style.display = "revert";
+				document.getElementById("proj01").style.display = "revert";
+				document.getElementById("proj02").style.display = "revert";
+				document.getElementById("proj03").style.display = "revert";
+				document.getElementById("proj04").style.display = "revert";
+				document.getElementById("proj05").style.display = "revert";
+			} else {
+				document.getElementById("proj00").style.display = "none";
+				document.getElementById("proj01").style.display = "none";
+				document.getElementById("proj02").style.display = "none";
+				document.getElementById("proj03").style.display = "none";
+				document.getElementById("proj04").style.display = "none";
+				document.getElementById("proj05").style.display = "none";
+			}
+}
+
+		function switchAdvancedProperties(){
+
+			if (document.getElementById("adv00").style.display == "none") {;
+				document.getElementById("adv00").style.display = "revert";
+				document.getElementById("adv01").style.display = "revert";
+			} else {
+				document.getElementById("adv00").style.display = "none";
+				document.getElementById("adv01").style.display = "none";
+			}
+		}
+		function initPage()
+        {			
+			var divs = document.getElementsByClassName("ObjectDetailsNotes");
+			for (var j = 0; j < divs.length; j++) {
+				var tmpStr = divs[j].innerHTML;
+				tmpStr = tmpStr.replace(/&gt;/g, ">");
+				tmpStr = tmpStr.replace(/&lt;/g, "<");
+
+				tmpStr = tmpStr.replace(/#gt;/g, "&gt;");
+				tmpStr = tmpStr.replace(/#lt;/g, "&lt;");
+
+				divs[j].innerHTML = tmpStr;
+			}
+
+            if (document.getElementById('TableGroup') != null)
+            {
+                toggleItem(document.getElementById('TableGroup').getElementsByTagName('li')[0].id.replace("Title", ""));
+            }
+
+        }
+</script>
+<style>
+
+</style>
+</head>
+<body onload="initPage();">
+<div class="section group" >
+
+		<div class="col span_2_of_2 header_frame">
+			<h1> railML3_RS_Vehicle </h1>
+			<!-- <img class="header_image" src="../images/ea-banner.png" align="right" alt="Header Image" />-->
+			<img class="header_image" src="../images/ea-banner.png" align="right" alt="Header Image" />
+		</div>
+		<div class="col span_2_of_2 breadcrumb_frame">
+			<p><a href="EA11.htm">Rollingstock3</a> / <a href="EA9.htm">railML3_RS_Vehicle</a></p>
+		</div>
+			
+		<table class="contentmaintable">
+			<!-- <tfoot>
+				<tr>
+					<td>foot1</td>
+					<td>foot2</td>
+				</tr>
+			</tfoot> -->
+			<tbody>
+				<tr>
+					<td class="indexcell">
+						<div class="projectBrowserTitle">Project: </div>
+						<ul>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA1.htm">railML3_RS</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA3.htm">railML3_RS_BaseTypes</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA5.htm">railML3_RS_DrivingResistance</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA7.htm">railML3_RS_Formation</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA9.htm">railML3_RS_Vehicle</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA15.htm">AdministrativeData</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA16.htm">BasicEntityRS</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA17.htm">Brakes</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA21.htm">DaviesFormula</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA22.htm">DrivingResistance</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA23.htm">DrivingResistanceDetails</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA24.htm">DrivingResistanceInfo</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA25.htm">Engine</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA26.htm">EntityRSref</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA27.htm">EntityRSwithID</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA28.htm">EntityRSwithIDandDesignator</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA29.htm">Formation</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA30.htm">Formations</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA31.htm">Rollingstock</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA35.htm">SpeedProfileRef</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA41.htm">TrackGaugeRS</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA42.htm">Traction</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA43.htm">TractionDetails</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA44.htm">TractionInfo</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA59.htm">TractionMode</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA45.htm">TrainDrivingResistance</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA46.htm">TrainEngine</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA47.htm">TrainOrder</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA60.htm">tTractionModeListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA49.htm">Vehicle</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA50.htm">VehicleAdministration</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA52.htm">VehicleCategoryExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA53.htm">VehicleKeeperRS</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA54.htm">VehicleManufacturerRS</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA55.htm">VehicleOperatorRS</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA56.htm">VehicleOwnerRS</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA57.htm">VehiclePart</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA58.htm">Vehicles</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA61.htm">tTractionModeList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA48.htm">tVehicleOrientation</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA51.htm">VehicleCategory</a></li>
+</ul>
+
+					</td>
+					<td class="contentcell"><div class="PageBody">
+	<div class=diagram_image> 
+<img src="EA10.png" usemap="#EA10" border="0" />
+
+<MAP NAME="EA10">
+<area shape="rect" coords="390,560,577,678" href="EA17.htm" target="_self">
+<area shape="rect" coords="155,950,334,1069" href="EA22.htm" target="_self">
+<area shape="rect" coords="390,711,600,842" href="EA15.htm" target="_self">
+<area shape="rect" coords="936,318,1077,407" href="EA42.htm" target="_self">
+<area shape="rect" coords="958,696,1125,828" href="EA50.htm" target="_self">
+<area shape="rect" coords="390,132,629,331" href="EA57.htm" target="_self">
+<area shape="rect" coords="347,950,437,1026" href="EA35.htm" target="_self">
+<area shape="rect" coords="347,1117,500,1209" href="EA23.htm" target="_self">
+<area shape="rect" coords="68,446,308,854" href="EA49.htm" target="_self">
+<area shape="rect" coords="717,608,822,678" href="EA54.htm" target="_self">
+<area shape="rect" coords="388,394,587,490" href="EA25.htm" target="_self">
+<area shape="rect" coords="1181,294,1288,383" href="EA43.htm" target="_self">
+<area shape="rect" coords="10,198,100,348" href="EA51.htm" target="_self">
+<area shape="rect" coords="1293,580,1404,679" href="EA61.htm" target="_self">
+<area shape="rect" coords="24,950,120,1026" href="EA41.htm" target="_self">
+<area shape="rect" coords="724,711,814,781" href="EA56.htm" target="_self">
+<area shape="rect" coords="350,10,529,80" href="EA37.htm" target="_self">
+<area shape="rect" coords="50,1120,303,1231" href="EA24.htm" target="_self">
+<area shape="rect" coords="163,247,267,317" href="EA52.htm" target="_self">
+<area shape="rect" coords="717,372,880,514" href="EA59.htm" target="_self">
+<area shape="rect" coords="1181,160,1315,249" href="EA44.htm" target="_self">
+<area shape="rect" coords="1130,600,1234,670" href="EA60.htm" target="_self">
+<area shape="rect" coords="724,921,814,991" href="EA53.htm" target="_self">
+<area shape="rect" coords="724,812,814,882" href="EA55.htm" target="_self">
+</MAP>
+ </div>
+	<div class="ObjectTitle">railML3_RS_Vehicle : Class diagram</div>
+	<table border="0" cellpadding="0" cellspacing="0" class="ObjectDetails">
+		<tr>
+			<td width="15%" class="ObjectDetailsTopic">Created:</td>
+			<td width="85%" class="ObjectDetailsValue">24/08/2020 17:05:05</td>
+		</tr>
+		<tr>
+			<td width="15%" class="ObjectDetailsTopic">Modified:</td>
+			<td width="85%" class="ObjectDetailsValue">29/10/2024 16:27:02</td>
+		</tr>
+		<tr style="padding-top: 10px;">
+			<td width="15%" class="ObjectDetailsTopic"><button onclick="switchProjectProperties()"><img src="../images/plus03.gif" align="absmiddle" id="proj" /></button>Project:</td>
+			<td width="85%" class="ObjectDetailsValue"></td>			
+		</tr>
+		<tr id="proj00" style="display: none;">
+			<td width="15%" class="ObjectDetailsTopic" style="padding-left: 18px;">Author:</td>
+			<td width="85%" class="ObjectDetailsValue">railML.org</td>
+		</tr>
+		<tr id="proj01" style="display: none;">
+			<td width="15%" class="ObjectDetailsTopic" style="padding-left: 18px;">Version:</td>
+			<td width="85%" class="ObjectDetailsValue">3.3</td>
+		</tr>
+		<tr>
+			<td width="15%" class="ObjectDetailsTopic"><button onclick="switchAdvancedProperties()"><img src="../images/plus03.gif" align="absmiddle" id="adv" /></button>Advanced:</td>
+			<td width="85%" class="ObjectDetailsValue"></td>			
+		</tr>
+		<tr id="adv00" style="display: none;">
+			<td width="15%" class="ObjectDetailsTopic" style="padding-left: 18px;">ID:</td>
+			<td width="85%" class="ObjectDetailsValue">{3490B926-95B0-4bb1-A1A3-075C8B4F77E1}</td>
+		</tr>
+	</table>
+	
+</div>
+
+ </td>
+				</tr>
+			</tbody>
+		</table>
+		
+</div>
+</body>
+</html>
+

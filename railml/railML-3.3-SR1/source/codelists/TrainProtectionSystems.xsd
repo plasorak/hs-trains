@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:railcode="https://www.railml.org/schemas/lists" xmlns:xml="http://www.w3.org/XML/1998/namespace" xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="https://www.railml.org/schemas/lists" elementFormDefault="qualified" version="1.0">
+
+  <xs:annotation>
+    <xs:documentation>Copyright (c) railML.org e.V. Dresden/Germany; All Rights Reserved.</xs:documentation>
+    <xs:documentation>This work is licensed under the restricted CreativeCommons Attribution-NonCommercial-NoDerivatives 4.0 International License with additional license conditions of railML.org.</xs:documentation>
+    <xs:documentation>For further information see: https://www.railml.org/licence</xs:documentation>
+    <xs:documentation>Content of this file: XML Schema for railML(R) (Definition of data types for the train protection systems code list)</xs:documentation>
+  </xs:annotation>
+
+  <xs:include schemaLocation="ListBaseTypes.xsd"/>
+
+  <xs:element name="trainProtectionSystems">
+    <xs:annotation>
+      <xs:documentation>Container/Root element for "train protection systems"</xs:documentation>
+    </xs:annotation>
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="trainProtectionSystemsAtTrack" type="railcode:tTrainProtectionSystemsAtTrack" minOccurs="0">
+          <xs:annotation>
+            <xs:documentation>container for train protection systems, installed "at the track"</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+        <xs:element name="trainProtectionSystemsOnVehicle" type="railcode:tTrainProtectionSystemsOnVehicle" minOccurs="0">
+          <xs:annotation>
+            <xs:documentation>container for train protection systems, installed "on the vehicle"</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+
+    <!-- Cross check for train protection systems installed "at track", which are referred to from within the train protection systems installed "on vehicle" -->
+    <xs:key name="trainProtectionSystemAtTrackKey">
+      <xs:selector xpath=".//railcode:trainProtectionSystemsAtTrack/railcode:trainProtectionSystem" />
+      <xs:field xpath="@code" />
+    </xs:key>
+    <xs:keyref name="trainProtectionSystemAtTrack-trackSystem" refer="railcode:trainProtectionSystemAtTrackKey">
+      <xs:selector xpath=".//railcode:trackSystem" />
+      <xs:field xpath="." />
+    </xs:keyref>
+
+    <!-- Cross check for train protection systems installed "on vehicle", which are referred to from within the train protection systems installed "at track" -->
+    <xs:key name="trainProtectionSystemOnVehicleKey">
+      <xs:selector xpath=".//railcode:trainProtectionSystemsOnVehicle/railcode:trainProtectionSystem" />
+      <xs:field xpath="@code" />
+    </xs:key>
+    <xs:keyref name="trainProtectionSystemOnVehicle-vehicleSystem" refer="railcode:trainProtectionSystemOnVehicleKey">
+      <xs:selector xpath=".//railcode:vehicleSystem" />
+      <xs:field xpath="." />
+    </xs:keyref>
+
+  </xs:element>
+
+  <xs:complexType name="tTrainProtectionSystemsAtTrack">
+    <xs:sequence>
+      <xs:element name="trainProtectionSystem" type="railcode:tTPSatTrack" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>Single entries for each train protection system, installed "at track"</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="tTPSatTrack">
+    <xs:sequence>
+      <xs:element name="name" type="railcode:tI18NString" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>Name of train protection systems, installed "at the track"</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="validFor" type="railcode:tValidForVehicle" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation>If the code for the system differs between vehicle and track installation, put the mapping in this container element</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="code" type="railcode:tCode">
+      <xs:annotation>
+        <xs:documentation>code, that should be referred to from within a railML file, typically a short name for the train protection system in Latin letters</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+
+  <xs:complexType name="tValidForVehicle">
+    <xs:sequence>
+      <xs:element name="vehicleSystem" type="railcode:tCode" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>train protection system code of the according vehicle system</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="tTrainProtectionSystemsOnVehicle">
+    <xs:sequence>
+      <xs:element name="trainProtectionSystem" type="railcode:tTPSonVehicle" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>Single entries for each train protection system, installed "on vehicle"</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  
+  <xs:complexType name="tTPSonVehicle">
+    <xs:sequence>
+      <xs:element name="name" type="railcode:tI18NString" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>Name of train protection systems, installed "on the vehicle"</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="validFor" type="railcode:tValidForTrack" minOccurs="0">
+        <xs:annotation>
+          <xs:documentation>If the code for the system differs between vehicle and track installation, put the mapping in this container element</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+    <xs:attribute name="code" type="railcode:tCode">
+      <xs:annotation>
+        <xs:documentation>code, that should be referred to from within a railML file, typically a short name for the train protection system in Latin letters</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:complexType>
+  
+  <xs:complexType name="tValidForTrack">
+    <xs:sequence>
+      <xs:element name="trackSystem" type="railcode:tCode" maxOccurs="unbounded">
+        <xs:annotation>
+          <xs:documentation>train protection system code of the according track system</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  
+</xs:schema>

@@ -1,0 +1,431 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) railML.org e.V. Dresden/Germany; All Rights Reserved.
+     This work is licensed under the restricted CreativeCommons Attribution-NonCommercial-NoDerivatives 4.0 International License with additional license conditions of railML.org.
+     For further information see: https://www.railml.org/licence
+     Content of this file: XML Code List for railML(R) Definition of train protection system codes, used by infrastructure sub schema (IS), rollingstock sub schema (RS) and timetable sub schema (TT) -->
+<trainProtectionSystems xmlns="https://www.railml.org/schemas/lists" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://www.railml.org/schemas/lists TrainProtectionSystems.xsd">
+  <trainProtectionSystemsAtTrack>
+    <trainProtectionSystem code="ALSN">
+      <name>Автоматическая Локомотивная Сигнализация Непрерывного действия (Continuous automatic cab signalling)</name>
+      <validFor>
+        <vehicleSystem>ALSN</vehicleSystem>
+        <vehicleSystem>ALSEN</vehicleSystem>
+        <vehicleSystem>KLUBU</vehicleSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ASFA">
+      <name>Anuncio de Señales y Frenado Automático</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ATB">
+      <name>automatische treinbeïnvloeding</name>
+      <validFor>
+        <vehicleSystem>ATB</vehicleSystem>
+        <vehicleSystem>ATBEG</vehicleSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ATBNG">
+      <name>automatische treinbeïnvloeding - Nieuwe Generatie</name>
+    </trainProtectionSystem>
+    <!-- This name is used for various systems with heterogeneous devices
+    <trainProtectionSystem code="ATC">
+      <name></name>
+      <validFor>
+        <vehicleSystem></vehicleSystem>
+      </validFor>
+    </trainProtectionSystem>
+-->
+    <trainProtectionSystem code="ATSP">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ATSS">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="AWS">
+      <name>Automatic Warning System</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="BACC">
+      <name>Blocco automatico a correnti codificate</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Crocodile">
+      <name />
+      <validFor>
+        <vehicleSystem>Crocodile</vehicleSystem>
+        <vehicleSystem>Memor</vehicleSystem>
+        <vehicleSystem>Memor2</vehicleSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="CIR-ELKE">
+      <name>Computer Integrated Railroading – Erhöhung der Leistungsfähigkeit im Kernnetz der Eisenbahn</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="CIR-ELKE2">
+      <name>Computer Integrated Railroading – Erhöhung der Leistungsfähigkeit im Kernnetz der Eisenbahn, Erweiterung</name>
+      <validFor>
+        <vehicleSystem>CIR-ELKE</vehicleSystem>
+        <vehicleSystem>CIR-ELKE2</vehicleSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="CSS">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="DATC">
+      <name>delvis Automatic Train Protection</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="EBICAB">
+      <name>electronic cab signalling Bombardier</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ETCS">
+      <name>European Train Control System (ERTMS)</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ETCS-L2">
+      <name>European Train Control System (ERTMS), Level 2</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="EVM">
+      <name />
+      <validFor>
+        <vehicleSystem>EVM120</vehicleSystem>
+        <vehicleSystem>EVM160</vehicleSystem>
+        <vehicleSystem>Mirel</vehicleSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Fahrsp">
+      <name>Fahrsperre (mechanical)</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="FATC">
+      <name>full Automatic Train Protection</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="GWATP">
+      <name>Great Western Automatic Train Protection</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Indusi">
+      <name>Induktive Zugsicherung</name>
+      <validFor>
+        <vehicleSystem>Indusi54</vehicleSystem>
+        <vehicleSystem>Indusi60</vehicleSystem>
+        <vehicleSystem>Indusi60R</vehicleSystem>
+        <vehicleSystem>PZ80</vehicleSystem>
+        <vehicleSystem>PZB90</vehicleSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Integra-Signum">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="KHP">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="KVB">
+      <name>Contrôle de vitesse par balises</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="LS">
+      <name />
+      <validFor>
+        <vehicleSystem>LS</vehicleSystem>
+        <vehicleSystem>LS90</vehicleSystem>
+        <vehicleSystem>Mirel</vehicleSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="LZB">
+      <name>Linienförmigen Zugbeeinflussung</name>
+      <validFor>
+        <vehicleSystem>LZB-L72</vehicleSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="RS4c">
+      <name>Blocco automatico a correnti codificate/Ripetizone dei Segnali 4 Codici</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SAUTC">
+      <name />
+      <validFor>
+        <vehicleSystem>SAUTC</vehicleSystem>
+        <vehicleSystem>SAUTCM</vehicleSystem>
+        <vehicleSystem>SAUTU</vehicleSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SCMT">
+      <name>Sistema die Controllo della Marcia dei Treni</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SELCAB">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SHP">
+      <name>Samoczynne hamowanie pociagu</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SSC">
+      <name>Sistema di Supporto alla Condotta</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="TBL">
+      <name>Transmission Balise-Locomotive</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="TPWS">
+      <name>train protection and warning system</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="TVM300">
+      <name>Transmission Voie-Machine (upto 300 km/h)</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="TVM430">
+      <name>Transmission Voie-Machine (greater 300 km/h)</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZSI127">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZSI90">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZSL90">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZST90">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZUB121">
+      <name>Zugbeeinflussung</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZUB122">
+      <name>Zugbeeinflussung</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZUB123">
+      <name>Zugbeeinflussung</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZUB262">
+      <name>Zugbeeinflussung</name>
+    </trainProtectionSystem>
+  </trainProtectionSystemsAtTrack>
+  <trainProtectionSystemsOnVehicle>
+    <trainProtectionSystem code="ALSEN">
+      <name>extension of ALSN for speeds up to 200 km/h</name>
+      <validFor>
+        <trackSystem>ALSN</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ALSN">
+      <name>Автоматическая Локомотивная Сигнализация Непрерывного действия (Continuous automatic cab signalling)</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ASFA">
+      <name>Anuncio de Señales y Frenado Automático</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ATB">
+      <name>automatische treinbeïnvloeding</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ATBEG">
+      <name>automatische treinbeïnvloeding - Eerste Generatie</name>
+      <validFor>
+        <trackSystem>ATB</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ATBNG">
+      <name>automatische treinbeïnvloeding - Nieuwe Generatie</name>
+    </trainProtectionSystem>
+    <!-- This name is used for various systems with heterogeneous devices
+    <trainProtectionSystem code="ATC">
+      <name></name>
+      <validFor>
+        <trackSystem></trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+-->
+    <trainProtectionSystem code="ATSP">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ATSS">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="AWS">
+      <name>Automatic Warning System</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="BACC">
+      <name>Blocco automatico a correnti codificate</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="CIR-ELKE">
+      <name>Computer Integrated Railroading – Erhöhung der Leistungsfähigkeit im Kernnetz der Eisenbahn</name>
+      <validFor>
+        <trackSystem>LZB</trackSystem>
+        <trackSystem>CIR-ELKE</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="CIR-ELKE2">
+      <name>Computer Integrated Railroading – Erhöhung der Leistungsfähigkeit im Kernnetz der Eisenbahn, Erweiterung</name>
+      <validFor>
+        <trackSystem>LZB</trackSystem>
+        <trackSystem>CIR-ELKE</trackSystem>
+        <trackSystem>CIR-ELKE2</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Crocodile">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="CSS">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="DATC">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="EBICAB">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ETCS">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="EVM120">
+      <name />
+      <validFor>
+        <trackSystem>EVM</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="EVM160">
+      <name />
+      <validFor>
+        <trackSystem>EVM</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Fahrsp">
+      <name>Fahrsperre</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="GWATP">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Indusi54">
+      <name />
+      <validFor>
+        <trackSystem>Indusi</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Indusi60">
+      <name />
+      <validFor>
+        <trackSystem>Indusi</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Indusi60R">
+      <name />
+      <validFor>
+        <trackSystem>Indusi</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Integra-Signum">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="KHP">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="KLUBU">
+      <name />
+      <validFor>
+        <trackSystem>ALSN</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="KVB">
+      <name>Contrôle de vitesse par balises</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="LS">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="LS90">
+      <name />
+      <validFor>
+        <trackSystem>LS</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="LZB-L72">
+      <name>Linienförmige Zugbeeinflussung Variante L72</name>
+      <validFor>
+        <trackSystem>LZB</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Memor">
+      <name />
+      <validFor>
+        <trackSystem>Crocodile</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Memor2">
+      <name />
+      <validFor>
+        <trackSystem>Crocodile</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="Mirel">
+      <name />
+      <validFor>
+        <trackSystem>EVM</trackSystem>
+        <trackSystem>LS</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="PZ80">
+      <name>Punktförmige Zugbeeinflussung Typ 80</name>
+      <validFor>
+        <trackSystem>Indusi</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="PZB90">
+      <name>Punktförmige Zugbeeinflussung Typ 90</name>
+      <validFor>
+        <trackSystem>Indusi</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="RS4c">
+      <name>Blocco automatico a correnti codificate/Ripetizone dei Segnali 4 Codici</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SAUTC">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SAUTCM">
+      <name />
+      <validFor>
+        <trackSystem>SAUTC</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SAUTU">
+      <name />
+      <validFor>
+        <trackSystem>SAUTC</trackSystem>
+      </validFor>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SCMT">
+      <name>Sistema die Controllo della Marcia dei Treni</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SELCAB">
+      <name />
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SHP">
+      <name>Samoczynne hamowanie pociagu</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="SSC">
+      <name>Sistema di Supporto alla Condotta</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="TBL">
+      <name>Transmission Balise-Locomotive</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="TPWS">
+      <name>train protection and warning system</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="TVM300">
+      <name>Transmission Voie-Machine (upto 300 km/h)</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="TVM430">
+      <name>Transmission Voie-Machine (greater 300 km/h)</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZSI127">
+      <name>Zugsicherung Schmalspur - 127</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZSI90">
+      <name>Zugsicherung Schmalspur - induktiv 90</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZSL90">
+      <name>Zugsicherung Schmalspur - Linienleiter 90</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZST90">
+      <name>Zugsicherung Schmalspur - Zugstop 90</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZUB121">
+      <name>Zugbeeinflussung Typ 121</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZUB122">
+      <name>Zugbeeinflussung Typ 122</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZUB123">
+      <name>Zugbeeinflussung Typ 123</name>
+    </trainProtectionSystem>
+    <trainProtectionSystem code="ZUB262">
+      <name>Zugbeeinflussung Typ 262</name>
+    </trainProtectionSystem>
+  </trainProtectionSystemsOnVehicle>
+</trainProtectionSystems>

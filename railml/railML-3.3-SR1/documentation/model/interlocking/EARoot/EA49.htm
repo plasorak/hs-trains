@@ -1,0 +1,440 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<title>railML3_IL_RouteRelease</title>
+<link href="../css/ea.css" rel="stylesheet" type="text/css" />
+<script language="JavaScript" src="../js/displayToc.js" type="text/javascript"></script>
+<script>
+
+  function switchProjectProperties() {
+			if (document.getElementById("proj00").style.display == "none") {
+				document.getElementById("proj00").style.display = "revert";
+				document.getElementById("proj01").style.display = "revert";
+				document.getElementById("proj02").style.display = "revert";
+				document.getElementById("proj03").style.display = "revert";
+				document.getElementById("proj04").style.display = "revert";
+				document.getElementById("proj05").style.display = "revert";
+			} else {
+				document.getElementById("proj00").style.display = "none";
+				document.getElementById("proj01").style.display = "none";
+				document.getElementById("proj02").style.display = "none";
+				document.getElementById("proj03").style.display = "none";
+				document.getElementById("proj04").style.display = "none";
+				document.getElementById("proj05").style.display = "none";
+			}
+}
+
+		function switchAdvancedProperties(){
+
+			if (document.getElementById("adv00").style.display == "none") {;
+				document.getElementById("adv00").style.display = "revert";
+				document.getElementById("adv01").style.display = "revert";
+			} else {
+				document.getElementById("adv00").style.display = "none";
+				document.getElementById("adv01").style.display = "none";
+			}
+		}
+		function initPage()
+        {			
+			var divs = document.getElementsByClassName("ObjectDetailsNotes");
+			for (var j = 0; j < divs.length; j++) {
+				var tmpStr = divs[j].innerHTML;
+				tmpStr = tmpStr.replace(/&gt;/g, ">");
+				tmpStr = tmpStr.replace(/&lt;/g, "<");
+
+				tmpStr = tmpStr.replace(/#gt;/g, "&gt;");
+				tmpStr = tmpStr.replace(/#lt;/g, "&lt;");
+
+				divs[j].innerHTML = tmpStr;
+			}
+
+            if (document.getElementById('TableGroup') != null)
+            {
+                toggleItem(document.getElementById('TableGroup').getElementsByTagName('li')[0].id.replace("Title", ""));
+            }
+
+        }
+</script>
+<style>
+
+</style>
+</head>
+<body onload="initPage();">
+<div class="section group" >
+
+		<div class="col span_2_of_2 header_frame">
+			<h1> railML3_IL_RouteRelease </h1>
+			<!-- <img class="header_image" src="../images/ea-banner.png" align="right" alt="Header Image" />-->
+			<img class="header_image" src="../images/ea-banner.png" align="right" alt="Header Image" />
+		</div>
+		<div class="col span_2_of_2 breadcrumb_frame">
+			<p><a href="EA63.htm">Interlocking3</a> / <a href="EA49.htm">railML3_IL_RouteRelease</a></p>
+		</div>
+			
+		<table class="contentmaintable">
+			<!-- <tfoot>
+				<tr>
+					<td>foot1</td>
+					<td>foot2</td>
+				</tr>
+			</tfoot> -->
+			<tbody>
+				<tr>
+					<td class="indexcell">
+						<div class="projectBrowserTitle">Project: </div>
+						<ul>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA1.htm">railML3_IL</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA3.htm">railML3_IL_AssetAndState</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA5.htm">railML3_IL_Assets</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA7.htm">railML3_IL_Assets1</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA9.htm">railML3_IL_Assets2</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA11.htm">railML3_IL_Assets3</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA13.htm">railML3_IL_Assets4</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA15.htm">railML3_IL_Barrier</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA17.htm">railML3_IL_ConflictingRoute</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA19.htm">railML3_IL_Controller</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA21.htm">railML3_IL_Derailer</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA23.htm">railML3_IL_GenericIM</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA25.htm">railML3_IL_Indicators</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA27.htm">railML3_IL_Interface</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA29.htm">railML3_IL_LevelCrossing</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA31.htm">railML3_IL_LevelCrossingType</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA33.htm">railML3_IL_LinesideElectronicUnits</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA35.htm">railML3_IL_LogicalDevices</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA37.htm">railML3_IL_MovableElement</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA39.htm">railML3_IL_Overlap</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA41.htm">railML3_IL_RBC</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA43.htm">railML3_IL_RestrictedArea</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA45.htm">railML3_IL_Route</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA47.htm">railML3_IL_RouteRelation</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA49.htm">railML3_IL_RouteRelease</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA51.htm">railML3_IL_Sections</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA53.htm">railML3_IL_SignalBox</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA55.htm">railML3_IL_SignalPlan</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA57.htm">railML3_IL_Signals</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA59.htm">railML3_IL_SystemAsset</a></li>
+<li><img src="../images/175.png" alt="Diagram"/> <a href="EA61.htm">railML3_IL_Types</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA100.htm">ActivationCondition</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA101.htm">ApproachStartingDetector</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA102.htm">AspectRelatedBarrierDelay</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA103.htm">AspectRelation</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA104.htm">AssetAndGivenState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA105.htm">AssetAndState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA106.htm">AssetsForInterlocking</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA107.htm">AssetsForInterlockings</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA108.htm">BarrierDeactivator</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA109.htm">BasicEntityIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA110.htm">CodedEntityILref</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA111.htm">CombinedRoute</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA112.htm">CombinedRoutes</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA113.htm">CommunicationSettings</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA114.htm">ComputerNode</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA115.htm">Configuration</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA116.htm">ConflictingRoute</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA117.htm">ConflictingRoutes</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA118.htm">ConflictReason</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA119.htm">ControlledAssets</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA120.htm">ControlledSignalBox</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA121.htm">Controller</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA122.htm">Controllers</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA123.htm">CrossingAndGivenPosition</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA124.htm">CrossingAndPosition</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA125.htm">CrossingInPosition</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA126.htm">DangerArea</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA127.htm">DangerAreas</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA128.htm">DangerPoint</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA129.htm">DangerPoints</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA130.htm">DerailerAndGivenPosition</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA131.htm">DerailerAndPosition</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA132.htm">DerailerIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA133.htm">DerailerInPosition</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA134.htm">DerailersIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA135.htm">DestinationPoints</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA136.htm">DetectorAndGivenState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA137.htm">DetectorAndState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA138.htm">DetectorInState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA139.htm">DetectorTypes</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA140.htm">ElementGroup</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA141.htm">ElementGroupingTypes</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA142.htm">EmergencyStopArea</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA143.htm">EmergencyStopAreas</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA144.htm">EndOfTrack</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA145.htm">EndOfTracks</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA147.htm">EntityIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA148.htm">EntityILref</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA149.htm">EtcsGeneralData</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA150.htm">GenericAspect</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA151.htm">GenericDetector</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA152.htm">GenericDetectors</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA153.htm">GenericInfrastructureManager</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA154.htm">GenericInfrastructureManagers</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA155.htm">GenericResetStrategy</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA156.htm">GenericRouteType</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA157.htm">GenericTypes</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA177.htm">IndicatingObject</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA178.htm">Indication</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA179.htm">IndicatorAndAspectRef</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA180.htm">InitStatus</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA181.htm">InputOutput</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA182.htm">Interface</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA183.htm">Interfaces</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA184.htm">Interlocking</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA210.htm">InterlockingInterface</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA211.htm">IPAddress</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA212.htm">IPv4_Address</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA213.htm">IPv4AddressEntry</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA214.htm">IPv6_Address</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA215.htm">Key</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA216.htm">KeyLockIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA217.htm">KeyLockInState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA218.htm">KeyLocksIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA219.htm">Keys</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA221.htm">LampColourListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA222.htm">LampEvaluation</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA223.htm">LampEvaluationChoice</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA224.htm">LampNumberList</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA225.htm">LampRefAspect</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA226.htm">LampRefSignal</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA228.htm">LampTypeListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA230.htm">LevelCrossingAndGivenState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA231.htm">LevelCrossingAndState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA232.htm">LevelCrossingIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA233.htm">LevelCrossingInState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA234.htm">LevelCrossingsIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA235.htm">LevelCrossingTypeList</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA236.htm">LinesideElectronicUnitIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA237.htm">LinesideElectronicUnitsIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA238.htm">LocalOperationArea</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA239.htm">LocalOperationAreas</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA240.htm">LockAndGivenState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA241.htm">LockAndState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA242.htm">LogicalDevice</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA243.htm">MAC_Address</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA244.htm">MovableBridge</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA245.htm">MovableBridges</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA246.htm">MovableCrossing</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA247.htm">MovableCrossings</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA248.htm">MovableElement</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA249.htm">ObjectController</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA250.htm">ObjectControllers</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA251.htm">OperatorCommand</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA252.htm">Overlap</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA253.htm">OverlapRelease</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA254.htm">OverlapReleaseTimer</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA255.htm">Overlaps</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA256.htm">PartialRoute</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA257.htm">PermissionZone</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA258.htm">PermissionZones</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA259.htm">PowerSuppliesIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA260.htm">PowerSupplyIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA261.htm">RadioBlockCentre</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA262.htm">RadioBlockCentres</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA264.htm">RbcBorderRef</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA265.htm">RelationReference</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA267.htm">RepeaterSignal</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA268.htm">RestrictedArea</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA269.htm">Route</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA270.htm">RouteActivationSection</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA271.htm">RouteEntry</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA272.htm">RouteExit</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA273.htm">RouteObject</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA274.htm">RouteRelation</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA275.htm">RouteRelations</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA276.htm">RouteReleaseGroupAhead</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA277.htm">RouteReleaseGroupRear</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA278.htm">RouteReleaseGroupsAhead</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA279.htm">RouteReleaseGroupsRear</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA280.htm">RouteReleaseTrigger</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA281.htm">Routes</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA282.htm">RouteSequences</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA283.htm">RouteStatusIndicator</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA284.htm">RouteStatusIndicators</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA285.htm">Scope</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA286.htm">SectionAndGivenVacancy</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA287.htm">SectionAndVacancy</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA288.htm">ShuntingZone</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA289.htm">ShuntingZones</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA290.htm">SignalAndAspect</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA291.htm">SignalAndGivenAspect</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA292.htm">SignalBox</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA293.htm">SignalBoxes</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA294.htm">SignalDelayTime</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA295.htm">SignalIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA296.htm">SignalIndicator</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA297.htm">SignalIndicators</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA298.htm">SignalLamps</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA299.htm">SignalPlan</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA300.htm">SignalsIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA301.htm">SignalWithAspect</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA302.htm">StationIndicator</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA303.htm">StationIndicators</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA305.htm">SwitchAndGivenPosition</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA306.htm">SwitchAndPosition</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA307.htm">SwitchesIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA308.htm">SwitchIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA309.htm">SwitchInPosition</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA310.htm">SwitchPositionRestriction</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA311.htm">SwitchRelatedDelay</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA312.htm">SystemAsset</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA313.htm">SystemAssetConnectedToIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA314.htm">tAliasString</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA316.htm">tBitPatternAny</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA323.htm">tDetectorTypeListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA324.htm">tElementWithIDandDesignator</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA358.htm">tGenericRouteTypeExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA361.htm">tGroupingTypesExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA362.htm">tHexa6String</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA363.htm">tHexaString</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA367.htm">tIxlTechnologyTypeListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA369.htm">tKeyLockFunctionListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA373.htm">tLocalOperationListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA379.htm">TrackAsset</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA380.htm">TrackAssetConnectedToIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA381.htm">TrackIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA382.htm">TracksIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA383.htm">TrainNumberField</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA384.htm">TrainNumberFieldRef</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA385.htm">TrainNumberFields</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA388.htm">tRelationUsageListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA390.htm">tRouteConflictTypesExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA393.htm">tSecurityLevelListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA395.htm">tSignalFunctionListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA397.htm">tSignalIndicatorsListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA402.htm">tStationZonesListExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA405.htm">tTriggerModeExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA407.htm">tTvdSectionTechnologyTypeExt</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA408.htm">TunnelGateAndGivenState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA409.htm">TunnelGateIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA410.htm">TunnelGatesIL</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA411.htm">TunnelGateState</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA412.htm">TvdSection</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA413.htm">TvdSections</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA414.htm">WorkZone</a></li>
+<li><img src="../images/5.png" alt="Class"/> <a href="EA415.htm">WorkZones</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA158.htm">IL-pics01_RouteDef.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA159.htm">IL-pics02_ShuntingArea.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA160.htm">IL-pics03_OverlappingLSA.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA162.htm">IL-pics05_Keylock.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA161.htm">IL-pics05_Keylock.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA163.htm">IL-pics06_EuroInterlocking.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA164.htm">IL-pics07_RoutePath.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA165.htm">IL-pics08_RouteEntry.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA166.htm">IL-pics09_RouteActivation.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA167.htm">IL-pics09_RouteExit.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA168.htm">IL-pics10_Compound.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA169.htm">IL-pics10_Compound.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA170.htm">IL-pics11_SignalPlan.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA171.htm">IL-pics12_TVD-Section.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA172.htm">IL-pics13_RestrictedArea.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA173.htm">IL-pics15_LX-Approach.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA175.htm">IL-pics18_SignalledSpeed.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA174.htm">IL-pics18_SignalledSpeed.png</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA176.htm">IL-pics19_SpeedProfile.png</a></li>
+<li><img src="../images/329.png" alt="Text"/> <a href="EA229.htm">Legend</a></li>
+<li><img src="../images/99.png" alt="UMLDiagram"/> <a href="EA263.htm">railML3_IL_Assets</a></li>
+<li><img src="../images/82.png" alt="Artifact"/> <a href="EA304.htm">Structure_MA.png</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA146.htm">EndOfTrackTypeList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA220.htm">LampColourList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA227.htm">LampTypeList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA266.htm">ReleaseSpeedSource</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA315.htm">tAndOr</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA317.htm">tContactState</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA318.htm">tCrossingPosition</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA319.htm">tDerailerILType</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA320.htm">tDerailingPosition</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA321.htm">tDetectorStates</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA322.htm">tDetectorTypeList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA354.htm">tExtentOfControl</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA355.htm">tGateStateList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA356.htm">tGenericAspectList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA357.htm">tGenericResetStrategyList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA359.htm">tGenericRouteTypeList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA360.htm">tGroupingTypes</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA364.htm">tIndicatorPositionList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA365.htm">tIxlInterfaceLocationTypeList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA366.htm">tIxlTechnologyTypeList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA368.htm">tKeyLockFunctionList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA370.htm">tLevelCrossingControlTypes</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA371.htm">tLevelCrossingState</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA372.htm">tLocalOperationList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA374.htm">tLockState</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA375.htm">tMustOrShould</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA376.htm">tOverlapReleaseCondition</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA377.htm">tProtectingSideList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA378.htm">tProving</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA386.htm">tRbcBorderTransitionKind</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA387.htm">tRelationUsageList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA389.htm">tRouteConflictTypes</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA391.htm">tSectionVacancy</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA392.htm">tSecurityLevelList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA394.htm">tSignalFunctionList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA396.htm">tSignalIndicatorsList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA398.htm">tSignalVoltageModes</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA399.htm">tStackOrientation</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA400.htm">tStackRelation</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA401.htm">tStationZonesList</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA403.htm">tSwitchPosition</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA404.htm">tTriggerMode</a></li>
+<li><img src="../images/247.png" alt="Enumeration"/> <a href="EA406.htm">tTvdSectionTechnologyType</a></li>
+</ul>
+
+					</td>
+					<td class="contentcell"><div class="PageBody">
+	<div class=diagram_image> 
+<img src="EA50.png" usemap="#EA50" border="0" />
+
+<MAP NAME="EA50">
+<area shape="rect" coords="529,125,675,179" href="EA68.htm" target="_self">
+<area shape="rect" coords="25,310,192,370" href="EA67.htm" target="_self">
+<area shape="rect" coords="305,113,459,189" href="EA276.htm" target="_self">
+<area shape="rect" coords="322,256,451,322" href="EA277.htm" target="_self">
+<area shape="rect" coords="303,10,487,80" href="EA339.htm" target="_self">
+<area shape="rect" coords="538,10,788,85" href="EA84.htm" target="_self">
+<area shape="rect" coords="529,266,675,309" href="EA69.htm" target="_self">
+<area shape="rect" coords="10,124,209,259" href="EA256.htm" target="_self">
+</MAP>
+ </div>
+	<div class="ObjectTitle">railML3_IL_RouteRelease : Class diagram</div>
+	<table border="0" cellpadding="0" cellspacing="0" class="ObjectDetails">
+		<tr>
+			<td width="15%" class="ObjectDetailsTopic">Created:</td>
+			<td width="85%" class="ObjectDetailsValue">18/11/2018 05:46:35</td>
+		</tr>
+		<tr>
+			<td width="15%" class="ObjectDetailsTopic">Modified:</td>
+			<td width="85%" class="ObjectDetailsValue">19/02/2022 12:27:25</td>
+		</tr>
+		<tr style="padding-top: 10px;">
+			<td width="15%" class="ObjectDetailsTopic"><button onclick="switchProjectProperties()"><img src="../images/plus03.gif" align="absmiddle" id="proj" /></button>Project:</td>
+			<td width="85%" class="ObjectDetailsValue"></td>			
+		</tr>
+		<tr id="proj00" style="display: none;">
+			<td width="15%" class="ObjectDetailsTopic" style="padding-left: 18px;">Author:</td>
+			<td width="85%" class="ObjectDetailsValue">railML.org</td>
+		</tr>
+		<tr id="proj01" style="display: none;">
+			<td width="15%" class="ObjectDetailsTopic" style="padding-left: 18px;">Version:</td>
+			<td width="85%" class="ObjectDetailsValue">3.3</td>
+		</tr>
+		<tr>
+			<td width="15%" class="ObjectDetailsTopic"><button onclick="switchAdvancedProperties()"><img src="../images/plus03.gif" align="absmiddle" id="adv" /></button>Advanced:</td>
+			<td width="85%" class="ObjectDetailsValue"></td>			
+		</tr>
+		<tr id="adv00" style="display: none;">
+			<td width="15%" class="ObjectDetailsTopic" style="padding-left: 18px;">ID:</td>
+			<td width="85%" class="ObjectDetailsValue">{2046CBAE-2CE8-4890-B904-CCCC329F457E}</td>
+		</tr>
+	</table>
+	
+</div>
+
+ </td>
+				</tr>
+			</tbody>
+		</table>
+		
+</div>
+</body>
+</html>
+
