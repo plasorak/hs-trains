@@ -2,3 +2,7 @@
 /.venv/
 *.parquet
 *.png
+__pycache__/
+*.pyc
+.DS_Store
+output.xml
