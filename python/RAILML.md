@@ -65,6 +65,111 @@ RailML
                 └── DaviesFormula   (Davis equation A + B·v + C·v²)
 ```
 
+```mermaid
+classDiagram
+    class RailML {
+        version: string
+    }
+    class Rollingstock
+    class Vehicles
+    class Vehicle {
+        id: string
+        speed: float
+        brutto_weight: float
+        tare_weight: float
+        length: float
+        number_of_driven_axles: int
+    }
+    class Designator {
+        register: string
+        entry: string
+        description: string
+    }
+    class VehiclePart {
+        id: string
+    }
+    class Engine
+    class PowerMode {
+        is_primary_mode: bool
+    }
+    class TractionData
+    class TractionInfo {
+        tractive_power: float
+        max_tractive_effort: float
+    }
+    class TractionDetails
+    class TractiveEffortCurve
+    class Brakes
+    class BrakeEffortCurve
+    class DecelerationCurve
+    class DrivingResistance
+    class DrivingResistanceInfo {
+        air_drag_coefficient: float
+        cross_section_area: float
+        rolling_resistance: float
+    }
+    class Formations
+    class Formation {
+        id: string
+        speed: float
+        brutto_weight: float
+        length: float
+    }
+    class TrainOrder {
+        vehicle_ref: string
+        position: int
+    }
+    class TrainEngine {
+        max_acceleration: float
+        mean_acceleration: float
+    }
+    class TrainTractionMode
+    class TrainDrivingResistance
+    class DaviesFormula {
+        constant_factor_a: float
+        speed_dependent_factor_b: float
+        square_speed_dependent_factor_c: float
+        mass_dependent: bool
+    }
+    class ValueTable
+    class ValueLine
+    class Value {
+        x: float
+        y: float
+    }
+
+    RailML --> Rollingstock
+    Rollingstock --> Vehicles
+    Rollingstock --> Formations
+    Vehicles --> Vehicle
+    Vehicle --> Designator
+    Vehicle --> VehiclePart
+    Vehicle --> Engine
+    Vehicle --> Brakes
+    Vehicle --> DrivingResistance
+    Engine --> PowerMode
+    PowerMode --> TractionData
+    TractionData --> TractionInfo
+    TractionData --> TractionDetails
+    TractionDetails --> TractiveEffortCurve
+    TractiveEffortCurve --> ValueTable
+    Brakes --> BrakeEffortCurve
+    Brakes --> DecelerationCurve
+    BrakeEffortCurve --> ValueTable
+    DecelerationCurve --> ValueTable
+    DrivingResistance --> DrivingResistanceInfo
+    Formations --> Formation
+    Formation --> Designator
+    Formation --> TrainOrder
+    Formation --> TrainEngine
+    Formation --> TrainDrivingResistance
+    TrainEngine --> TrainTractionMode
+    TrainDrivingResistance --> DrivingResistanceInfo
+    TrainDrivingResistance --> DaviesFormula
+    ValueTable --> ValueLine
+    ValueLine --> Value
+```
+
 Value tables (speed–force, speed–deceleration, etc.) are represented by the
 `ValueTable` / `ValueLine` / `Value` trio, which map directly to the
 `common3.xsd` types.
