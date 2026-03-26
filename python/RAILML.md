@@ -68,74 +68,122 @@ RailML
 ```mermaid
 classDiagram
     class RailML {
-        version: string
+        +version: string
     }
     class Rollingstock
     class Vehicles
     class Vehicle {
-        id: string
-        speed: float
-        brutto_weight: float
-        tare_weight: float
-        length: float
-        number_of_driven_axles: int
+        +id: string
+        +speed: float
+        +bruttoWeight: float
+        +tareWeight: float
+        +nettoWeight: float
+        +timetableWeight: float
+        +maximumWeight: float
+        +maximumAxleLoad: float
+        +adhesionWeight: float
+        +length: float
+        +numberOfDrivenAxles: int
+        +numberOfNonDrivenAxles: int
+        +rotatingMassFactor: float
+        +effectiveAxleDistance: float
+        +towingSpeed: float
+        +basedOnTemplate: ref
     }
     class Designator {
-        register: string
-        entry: string
-        description: string
+        +register: string
+        +entry: string
+        +description: string
     }
     class VehiclePart {
-        id: string
+        +id: string
+        +partOrder: int
+        +category: VehicleCategoryExt
+        +airTightness: bool
+        +emergencyBrakeOverride: bool
+        +maximumCantDeficiency: float
     }
+    class PassengerFacilities
+    class FreightFacilities
+    class TiltingSpecification
+    class SpeedProfileRef {
+        +ref: string
+    }
+    class TrackGaugeRS {
+        +value: float
+    }
+    class AdministrativeData
+    class VehicleAdministration {
+        +class: string
+        +refersTo: ref
+    }
+    class VehicleManufacturerRS
+    class VehicleOwnerRS
+    class VehicleOperatorRS
+    class VehicleKeeperRS
     class Engine
-    class PowerMode {
-        is_primary_mode: bool
+    class TractionMode {
+        +isPrimaryMode: bool
+        +mode: TractionModeListExt
+        +electrificationSystemRef: ref
     }
-    class TractionData
+    class Traction
     class TractionInfo {
-        tractive_power: float
-        max_tractive_effort: float
+        +tractivePower: float
+        +maxTractiveEffort: float
     }
     class TractionDetails
-    class TractiveEffortCurve
+    class Curve
     class Brakes
-    class BrakeEffortCurve
-    class DecelerationCurve
-    class DrivingResistance
+    class tBrakeSystem
+    class DrivingResistance {
+        +tunnelFactor: float
+    }
     class DrivingResistanceInfo {
-        air_drag_coefficient: float
-        cross_section_area: float
-        rolling_resistance: float
+        +airDragCoefficient: float
+        +crossSectionArea: float
+        +rollingResistance: float
+    }
+    class DrivingResistanceDetails {
+        +massDependent: bool
     }
     class Formations
     class Formation {
-        id: string
-        speed: float
-        brutto_weight: float
-        length: float
+        +id: string
+        +speed: float
+        +bruttoWeight: float
+        +tareWeight: float
+        +nettoWeight: float
+        +timetableWeight: float
+        +haulingWeight: float
+        +length: float
+        +numberOfAxles: int
+        +numberOfWagons: int
+        +maximumAxleLoad: float
+        +maximumCantDeficiency: float
     }
     class TrainOrder {
-        vehicle_ref: string
-        position: int
+        +vehicleRef: ref
+        +orderNumber: int
+        +orientation: VehicleOrientation
     }
     class TrainEngine {
-        max_acceleration: float
-        mean_acceleration: float
+        +maxAcceleration: float
+        +meanAcceleration: float
+        +minTimeHoldSpeed: duration
     }
-    class TrainTractionMode
     class TrainDrivingResistance
     class DaviesFormula {
-        constant_factor_a: float
-        speed_dependent_factor_b: float
-        square_speed_dependent_factor_c: float
-        mass_dependent: bool
+        +constantFactorA: float
+        +speedDependentFactorB: float
+        +squareSpeedDependentFactorC: float
+        +massDependent: bool
     }
     class ValueTable
     class ValueLine
     class Value {
-        x: float
-        y: float
+        +x: float
+        +y: float
     }
 
     RailML --> Rollingstock
@@ -146,26 +194,44 @@ classDiagram
     Vehicle --> VehiclePart
     Vehicle --> Engine
     Vehicle --> Brakes
+    Vehicle --> AdministrativeData
     Vehicle --> DrivingResistance
-    Engine --> PowerMode
-    PowerMode --> TractionData
-    TractionData --> TractionInfo
-    TractionData --> TractionDetails
-    TractionDetails --> TractiveEffortCurve
-    TractiveEffortCurve --> ValueTable
-    Brakes --> BrakeEffortCurve
-    Brakes --> DecelerationCurve
-    BrakeEffortCurve --> ValueTable
-    DecelerationCurve --> ValueTable
-    DrivingResistance --> DrivingResistanceInfo
+    Vehicle --> SpeedProfileRef
+    Vehicle --> TrackGaugeRS
+    VehiclePart --> PassengerFacilities
+    VehiclePart --> FreightFacilities
+    VehiclePart --> TiltingSpecification
+    AdministrativeData --> VehicleManufacturerRS
+    AdministrativeData --> VehicleOwnerRS
+    AdministrativeData --> VehicleOperatorRS
+    AdministrativeData --> VehicleKeeperRS
+    VehicleManufacturerRS --|> VehicleAdministration
+    VehicleOwnerRS --|> VehicleAdministration
+    VehicleOperatorRS --|> VehicleAdministration
+    VehicleKeeperRS --|> VehicleAdministration
+    Engine --> TractionMode
+    TractionMode --> Traction
+    Traction --> TractionInfo
+    Traction --> TractionDetails
+    TractionDetails --> Curve : tractiveEffort
+    Brakes --> tBrakeSystem : vehicleBrakes
+    Brakes --> Curve : brakeEffort
+    Brakes --> Curve : decelerationTable
+    DrivingResistance --> DrivingResistanceInfo : info
+    DrivingResistance --> DrivingResistanceDetails : details
+    DrivingResistanceDetails --|> Curve
     Formations --> Formation
     Formation --> Designator
     Formation --> TrainOrder
     Formation --> TrainEngine
-    Formation --> TrainDrivingResistance
-    TrainEngine --> TrainTractionMode
-    TrainDrivingResistance --> DrivingResistanceInfo
+    Formation --> tBrakeSystem : trainBrakes
+    Formation --> TiltingSpecification
+    Formation --> TrainDrivingResistance : trainResistance
+    Formation --> Curve : decelerationTable
+    TrainEngine --> TractionMode
+    TrainDrivingResistance --|> DrivingResistance
     TrainDrivingResistance --> DaviesFormula
+    Curve --> ValueTable
     ValueTable --> ValueLine
     ValueLine --> Value
 ```
