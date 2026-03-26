@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) railML.org e.V. Dresden/Germany; All Rights Reserved.
+     This work is licensed under the restricted CreativeCommons Attribution-NonCommercial-NoDerivatives 4.0 International License with additional license conditions of railML.org.
+     For further information see: https://www.railml.org/licence
+     Content of this file: XML Code List for railML(R) Definition of operation or control point register codes, mostly used by timetable sub schema (TT) -->
+<registers xmlns="https://www.railml.org/schemas/lists" xmlns:xml="http://www.w3.org/XML/1998/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="https://www.railml.org/schemas/lists Registers.xsd">
+  <register code="BaneData">
+    <name xml:lang="no">BaneData</name>
+    <organization xml:lang="no">Bane NOR</organization>
+    <remarks xml:lang="en">Asset management database for Norway (scope: Norway)</remarks>
+  </register>
+  <register code="CZPOD">
+    <name xml:lang="cz">Česky Prohlášení o Dráze</name>
+    <name xml:lang="en">Czech Network Statement</name>
+    <organization xml:lang="cz">Správa železnic, státní organizace</organization>
+    <remarks xml:lang="cz">Počet železničních tratí podle přílohy E aktuálního prohlášení o české drahy</remarks>
+    <remarks xml:lang="en">Number of railway line as available in Annex E of current Czech Network Statement</remarks>
+  </register>
+  <register code="DB640">
+    <name xml:lang="de-AT">Dienstbehelf Nr. 640</name>
+    <organization xml:lang="de-AT">ÖBB</organization>
+  </register>
+  <register code="DfA">
+    <name xml:lang="de-CH">Datenbank Feste Anlagen</name>
+    <name xml:lang="fr-CH">banque de données des installations fixes</name>
+    <name xml:lang="it-CH">banca dati degli impianti fissi</name>
+    <organization xml:lang="de-CH">Schweizerische Bundesbahnen im Auftrag des Bundesamtes für Verkehr</organization>
+    <organization xml:lang="fr-CH">Chemins de fer fédéraux suisses par ordre Office fédéral des transports</organization>
+    <organization xml:lang="it-CH">Ferrovie Federali Svizzere su incarico Ufficio federale dei trasporti</organization>
+    <organization xml:lang="en">Swiss Federal Railways on behalf of Federal Office of Transport</organization>
+  </register>
+  <register code="DIDOK">
+    <name xml:lang="de-CH">Liste der Stationsnamen (Dienststellendokumentation)</name>
+    <name xml:lang="fr-CH">Liste des noms des stations </name>
+    <name xml:lang="it-CH">Lista dei nomi delle fermate</name>
+    <name xml:lang="en">List of station names</name>
+    <organization xml:lang="de-CH">Schweizerische Bundesbahnen im Auftrag des Bundesamtes für Verkehr</organization>
+    <organization xml:lang="fr-CH">Chemins de fer fédéraux suisses par ordre Office fédéral des transports</organization>
+    <organization xml:lang="it-CH">Ferrovie Federali Svizzere su incarico Ufficio federale dei trasporti</organization>
+    <organization xml:lang="en">Swiss Federal Railways on behalf of Federal Office of Transport</organization>
+    <remarks xml:lang="en">Official abbreviations for swiss stations, included in the "Dienststellendokumentation" of Schweizerische Bundesbahnen on behalf of Bundesamt für Verkehr. Not to be confused with the Swiss Location Identification (see the SLOID register).</remarks>
+  </register>
+  <register code="DKTPYK">
+    <name xml:lang="el">Κατάλογος δρομολογιακών θέσεων εκμετάλλευσης Ελλάδας</name>
+    <name xml:lang="en">Greek Timetable Operational Points Register</name>
+    <organization xml:lang="el">Οργανισμός Σιδηροδρόμων Ελλάδος (Τμήμα Δρομολογίων/ΤΠΥΚ)</organization>
+    <organization xml:lang="en">Hellenic Railways Organization (Traffic Directorate/TPYK)</organization>
+  </register>
+  <register code="DRR-BE">
+    <name xml:lang="fr-BE">Document de Référence du Réseau</name>
+    <name xml:lang="nl-BE">Netverklaring</name>
+    <organization xml:lang="fr-BE">Infrabel</organization>
+    <organization xml:lang="nl-BE">Infrabel</organization>
+    <remarks xml:lang="fr-BE">courte description et la source</remarks>
+    <remarks xml:lang="nl-BE">korte beschrijving en de bron</remarks>
+  </register>
+  <register code="ENEE">
+    <name>ENEE Database Station Code</name>
+    <organization xml:lang="fr">UIC</organization>
+  </register>
+  <register code="GAIA">
+    <name xml:lang="fr">Gaïa</name>
+    <organization xml:lang="fr">SNCF Réseau</organization>
+    <remarks xml:lang="en">infrastructure register based on ARIANE data model</remarks>
+  </register>
+  <register code="IBNR">
+    <name>IBNR</name>
+    <organization xml:lang="de">Europäisches Fahrplanzentrum</organization>
+  </register>
+  <register code="LVV">
+    <name xml:lang="nl">Lijst van verkortingen</name>
+    <organization xml:lang="nl">ProRail / RIGD Loxia</organization>
+  </register>
+  <register code="PLC">
+    <name xml:lang="en">Primary Location Code for the TAF/TAP TSI</name>
+    <organization xml:lang="en">RailNetEurope</organization>
+    <remarks xml:lang="en">Used for the communication between the railway undertaking and the infrastructure manager. format: country code as ISO-3366-1 + 5 digits</remarks>
+  </register>
+  <register code="RICS">
+    <name xml:lang="en">Railway Interchange Coding System (RICS)</name>
+    <organization xml:lang="en">International union of railways (UIC)</organization>
+    <organization xml:lang="fr">Union Internationale des Chemins de fer (UIC)</organization>
+    <remarks xml:lang="en">4 digit codes used in various applications to identify a company involved in the railway business</remarks>
+    <remarks xml:lang="en">https://uic.org/support-activities/it/rics</remarks>
+  </register>
+  <register code="RL100">
+    <name xml:lang="de-DE">Betriebsstellenverzeichnis</name>
+    <organization xml:lang="de-DE">DB</organization>
+    <remarks xml:lang="de-DE">auch/früher als DS100 oder Ril100 bezeichnet</remarks>
+    <remarks xml:lang="en">also/former known as DS100 or Ril100</remarks>
+  </register>
+  <register code="SJN">
+    <name xml:lang="no">Strekningsbeskrivelse for jernbanenettet</name>
+    <organization xml:lang="no">Bane NOR (on behalf of Jernbanedirektoratet)</organization>
+    <remarks xml:lang="no">Norwegian "Strekningsbeskrivelse for jernbanenettet" of BaneNOR on behalf of Jernbanedirektoratet</remarks>
+  </register>
+  <register code="SLC">
+    <name xml:lang="en">Subsidiary Location Code for the TAF/TAP TSI</name>
+    <organization xml:lang="en">RailNetEurope</organization>
+    <remarks xml:lang="en">Used for the communication between the railway undertakings where detailed information within a primary location is needed. format:  1 to 10 (1AN – 10AN and special characters based on extended ASCII codes)</remarks>
+  </register>
+  <register code="SLOID">
+    <name xml:lang="en">Swiss Location Identification (SLOID)</name>
+    <organization xml:lang="de-CH">Schweizerische Bundesbahnen im Auftrag des Bundesamtes für Verkehr</organization>
+    <organization xml:lang="fr-CH">Chemins de fer fédéraux suisses par ordre Office fédéral des transports</organization>
+    <organization xml:lang="it-CH">Ferrovie Federali Svizzere su incarico Ufficio federale dei trasporti</organization>
+    <organization xml:lang="en">Swiss Federal Railways on behalf of Federal Office of Transport</organization>
+    <remarks xml:lang="en">Unique identifier of Swiss stop locations. Not to be confused with the DiDok abbreviation (see the DIDOK register).</remarks>
+    <remarks xml:lang="en">https://opentransportdata.swiss/en/dataset/service-points-actual-date</remarks>
+    <remarks xml:lang="de-CH">https://opentransportdata.swiss/de/dataset/service-points-actual-date</remarks>
+    <remarks xml:lang="fr-CH">https://opentransportdata.swiss/fr/dataset/service-points-actual-date</remarks>
+    <remarks xml:lang="it-CH">https://opentransportdata.swiss/it/dataset/service-points-actual-date</remarks>
+  </register>
+  <register code="SR70">
+    <name xml:lang="cz">Služební rukověť 70</name>
+    <organization xml:lang="cz">SŽDC</organization>
+    <remarks xml:lang="en">register of locations of SZDC infrastructure in Czech Republic</remarks>
+  </register>
+  <register code="STNX">
+    <name xml:lang="en">Station Numbers (STANOX)</name>
+    <organization>Network Rail</organization>
+    <remarks xml:lang="en">STANOX codes are used in the Total Operations Processing System (TOPS), and are supposedly unique siding location numbers.</remarks>
+  </register>
+  <register code="TJN">
+    <name xml:lang="no">Trafikkregler for jernbanenettet</name>
+    <organization xml:lang="no">Bane NOR</organization>
+    <remarks xml:lang="en">Norwegian traffic rules (scope: Norway)</remarks>
+    <remarks xml:lang="en">http://orv.jbv.no/orv/doku.php?id=tjn:start</remarks>
+  </register>
+  <register code="TPLC">
+    <name xml:lang="en">Timing Point Location (TIPLOC)</name>
+    <organization>Network Rail</organization>
+    <remarks xml:lang="en">TIPLOCs are used by train planners to identify what time trains should arrive at, depart or pass a particular point.  They are limited to seven characters.</remarks>
+  </register>
+  <register code="UNO">
+    <name xml:lang="en">Unified Network Objects</name>
+    <organization xml:lang="de-CH">Schweizerische Bundesbahnen im Auftrag des Bundesamtes für Verkehr</organization>
+    <organization xml:lang="fr-CH">Chemins de fer fédéraux suisses par ordre Office fédéral des transports</organization>
+    <organization xml:lang="it-CH">Ferrovie Federali Svizzere su incarico Ufficio federale dei trasporti</organization>
+    <organization xml:lang="en">Swiss Federal Railways on behalf of Federal Office of Transport</organization>
+  </register>
+  <register code="UOPID">
+    <name xml:lang="en">UniqueOPID</name>
+    <organization xml:lang="de">Eisenbahnagentur der Europäischen Union</organization>
+    <organization xml:lang="en">European Union Agency for Railways</organization>
+    <remarks xml:lang="en">Code composed of country code and alphanumeric OP code to describe OP in RINF register</remarks>
+  </register>
+  <register code="UUID">
+    <name xml:lang="en">Universally Unique Identifier</name>
+    <organization xml:lang="en">None</organization>
+    <remarks xml:lang="en">As defined by the Internet Engineering Task Force (IETF) in RFC 9562</remarks>
+  </register>
+</registers>

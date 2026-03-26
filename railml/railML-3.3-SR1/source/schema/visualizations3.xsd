@@ -1,0 +1,237 @@
+<?xml  version='1.0' encoding='utf-8' ?>
+<xs:schema targetNamespace="https://www.railml.org/schemas/3.3" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:rail3="https://www.railml.org/schemas/3.3" elementFormDefault="qualified" version="3.3">
+	<xs:annotation>
+		<xs:documentation>Copyright (c) railML.org e.V. Dresden/Germany; All Rights Reserved.&#xD;
+&#xD;
+This work is licensed under the restricted CreativeCommons Attribution-NonCommercial-NoDerivatives 4.0 International License with additional license conditions of railML.org.&#xD;
+&#xD;
+For further information see: https://www.railml.org/licence&#xD;
+&#xD;
+Content of this file: XML Schema for railML(R) 3 definition of elements for visualization sub schema (VS).</xs:documentation>
+	</xs:annotation>
+	<xs:include schemaLocation="generic3.xsd"/>
+	<xs:simpleType name="tElementProjectionSymbolOrientation">
+		<xs:restriction base="xs:string">
+			<xs:enumeration value="down">
+				<xs:annotation>
+					<xs:documentation>the icon or symbol is turned 180 degrees</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="left">
+				<xs:annotation>
+					<xs:documentation>icon or symbol turned 90 degrees left</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="right">
+				<xs:annotation>
+					<xs:documentation>icon or symbol turned 90 degrees right</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+			<xs:enumeration value="up">
+				<xs:annotation>
+					<xs:documentation>standard orientation of icon or symbol</xs:documentation>
+				</xs:annotation>
+			</xs:enumeration>
+		</xs:restriction>
+	</xs:simpleType>
+	<xs:simpleType name="tElementProjectionSymbolOrientationExt">
+		<xs:union memberTypes="rail3:tElementProjectionSymbolOrientation rail3:tOtherEnumerationValue"/>
+	</xs:simpleType>
+	<xs:complexType name="AreaProjection">
+		<xs:annotation>
+			<xs:documentation>element projection as area location (min 4 coordinates (e.g. 3 points for triangle and 1 additional to close the area), whereas the last coordinate is identical to the first one to close the area)</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="rail3:ElementProjection">
+				<xs:sequence>
+					<xs:element name="coordinate" type="rail3:ProjectionCoordinate" minOccurs="3" maxOccurs="unbounded">
+						<xs:annotation>
+							<xs:documentation>coordinates for area projection (min 3 whereas first and last coordinate have to be identical to close the polygon)</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="ElementProjection">
+		<xs:complexContent>
+			<xs:extension base="rail3:VisualizationBaseElement">
+				<xs:sequence>
+					<xs:element name="usesSymbol" type="rail3:ElementProjectionSymbol" minOccurs="0" maxOccurs="1">
+						<xs:annotation>
+							<xs:documentation>use an (external) symbol for element projection</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+				</xs:sequence>
+				<xs:attribute name="refersToElement" use="required" type="rail3:tRef">
+					<xs:annotation>
+						<xs:documentation>reference to any element of infrastructure model</xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="ElementProjectionSymbol">
+		<xs:complexContent>
+			<xs:extension base="rail3:VisualizationBaseElement">
+				<xs:sequence>
+					<xs:element name="isLocatedAt" type="rail3:ProjectionCoordinate" minOccurs="1" maxOccurs="1">
+						<xs:annotation>
+							<xs:documentation>coordinate, where the icon or symbol shall be placed with its reference point</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+				</xs:sequence>
+				<xs:attribute name="externalIconRef" use="optional" type="xs:string">
+					<xs:annotation>
+						<xs:documentation>reference to an external Icon or symbol</xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+				<xs:attribute name="orientation" use="optional" type="rail3:tElementProjectionSymbolOrientationExt">
+					<xs:annotation>
+						<xs:documentation>orientation of the external icon or symbol with respect to its standard orientation (up)</xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="EllipticalProjection">
+		<xs:annotation>
+			<xs:documentation>element projection in form of an ellipse or circle</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="rail3:ElementProjection">
+				<xs:sequence>
+					<xs:element name="center" type="rail3:ProjectionCoordinate" minOccurs="1" maxOccurs="1">
+						<xs:annotation>
+							<xs:documentation>center point of the ellipse</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+				</xs:sequence>
+				<xs:attribute name="longAxis" use="required" type="rail3:tLengthM">
+					<xs:annotation>
+						<xs:documentation>length of the ellipse long axis in meters</xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+				<xs:attribute name="shortAxis" use="required" type="rail3:tLengthM">
+					<xs:annotation>
+						<xs:documentation>length of the ellipse short axis in meters</xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+				<xs:attribute name="turnAngle" use="optional" default="0" type="rail3:tAngleDeg">
+					<xs:annotation>
+						<xs:documentation>angle between x-axis and the long half axis of the ellipse, given in degrees (default value 0)</xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="InfrastructureVisualization">
+		<xs:annotation>
+			<xs:documentation>visualization of (a part of) a railway dataset, e.g. visualization of a railway network on a screen or a schematic map</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="rail3:VisualizationBaseElement">
+				<xs:sequence>
+					<xs:element name="areaElementProjection" type="rail3:AreaProjection" minOccurs="0" maxOccurs="unbounded">
+						<xs:annotation>
+							<xs:documentation>element projection as area location (min 3 coordinates, whereas the last coordinate is identical to the first one to close the area)</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+					<xs:element name="ellipticalProjection" type="rail3:EllipticalProjection" minOccurs="0" maxOccurs="unbounded">
+						<xs:annotation>
+							<xs:documentation>element projection in form of an ellipse or circle</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+					<xs:element name="linearElementProjection" type="rail3:LinearProjection" minOccurs="0" maxOccurs="unbounded">
+						<xs:annotation>
+							<xs:documentation>element projection as linear location (min 2 coordinates)</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+					<xs:element name="spotElementProjection" type="rail3:SpotProjection" minOccurs="0" maxOccurs="unbounded">
+						<xs:annotation>
+							<xs:documentation>element projection as spot location (1 coordinate)</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+				</xs:sequence>
+				<xs:attribute name="positioningSystemRef" use="optional" type="rail3:tRef">
+					<xs:annotation>
+						<xs:documentation>reference to a positioning system</xs:documentation>
+					</xs:annotation>
+				</xs:attribute>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="InfrastructureVisualizations">
+		<xs:sequence>
+			<xs:element name="infrastructureVisualization" type="rail3:InfrastructureVisualization" minOccurs="1" maxOccurs="unbounded">
+				<xs:annotation>
+					<xs:documentation>visualization of (a part of) a railway infrastructure dataset, e.g. visualization of a railway network on a screen or a schematic map</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+	<xs:complexType name="LinearProjection">
+		<xs:annotation>
+			<xs:documentation>element projection as linear location (min 2 coordinates)</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="rail3:ElementProjection">
+				<xs:sequence>
+					<xs:element name="coordinate" type="rail3:ProjectionCoordinate" minOccurs="2" maxOccurs="unbounded">
+						<xs:annotation>
+							<xs:documentation>coordinates for linear projection (min 2)</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="ProjectionCoordinate">
+		
+		<xs:attribute name="x" use="required" type="xs:decimal"/>
+		<xs:attribute name="y" use="optional" type="xs:decimal"/>
+		<xs:attribute name="z" use="optional" type="xs:decimal"/>
+	</xs:complexType>
+	<xs:complexType name="SpotProjection">
+		<xs:annotation>
+			<xs:documentation>element projection as spot location (1 coordinate)</xs:documentation>
+		</xs:annotation>
+		<xs:complexContent>
+			<xs:extension base="rail3:ElementProjection">
+				<xs:sequence>
+					<xs:element name="coordinate" type="rail3:ProjectionCoordinate" minOccurs="1" maxOccurs="1">
+						<xs:annotation>
+							<xs:documentation>coordinate for spot projection (exact one)</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+				</xs:sequence>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="VisualizationBaseElement" abstract="true">
+		<xs:complexContent>
+			<xs:extension base="rail3:tElementWithIDandName">
+				<xs:sequence>
+					<xs:element name="designator" type="rail3:Designator" minOccurs="0" maxOccurs="unbounded">
+						<xs:annotation>
+							<xs:documentation>external identifier of the entity</xs:documentation>
+						</xs:annotation>
+					</xs:element>
+				</xs:sequence>
+				<xs:attributeGroup ref="rail3:anyAttribute"/>
+			</xs:extension>
+		</xs:complexContent>
+	</xs:complexType>
+	<xs:complexType name="Visualizations">
+		<xs:annotation>
+			<xs:documentation>container element for all visualizations</xs:documentation>
+		</xs:annotation>
+		<xs:sequence>
+			<xs:element name="infrastructureVisualizations" type="rail3:InfrastructureVisualizations" minOccurs="0" maxOccurs="1">
+				<xs:annotation>
+					<xs:documentation>container element for infrastructure visualizations</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+</xs:schema>
