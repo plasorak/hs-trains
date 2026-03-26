@@ -41,28 +41,48 @@ RailML
 └── Rollingstock
     ├── Vehicles
     │   └── Vehicle  (one per vehicle class / individual unit)
-    │       ├── Designator          (UIC number, operator code, …)
-    │       ├── VehiclePart         (physical sections of the vehicle)
+    │       ├── Designator              (UIC number, operator code, …)
+    │       ├── VehiclePart             (physical sections of the vehicle)
+    │       │   ├── PassengerFacilities
+    │       │   │   ├── Places
+    │       │   │   └── Service
+    │       │   ├── FreightFacilities
+    │       │   └── TiltingSpecification
     │       ├── Engine
-    │       │   └── PowerMode       (diesel / electric / battery)
+    │       │   └── PowerMode           (diesel / electric / battery)
     │       │       └── TractionData
     │       │           ├── TractionInfo      (scalar summary)
     │       │           └── TractionDetails
     │       │               └── TractiveEffortCurve  (speed → force table)
     │       ├── Brakes
+    │       │   ├── BrakeSystem         (0..* vehicleBrakes)
+    │       │   │   └── AuxiliaryBrakes
     │       │   ├── BrakeEffortCurve
     │       │   └── DecelerationCurve
-    │       └── DrivingResistance
-    │           └── DrivingResistanceInfo
+    │       ├── AdministrativeData
+    │       │   ├── VehicleManufacturerRS
+    │       │   ├── VehicleOwnerRS
+    │       │   ├── VehicleOperatorRS
+    │       │   └── VehicleKeeperRS
+    │       ├── DrivingResistance
+    │       │   ├── DrivingResistanceInfo   (scalar Cd, area, rolling resistance)
+    │       │   └── DrivingResistanceDetails (speed → resistance curve)
+    │       ├── SpeedProfileRef
+    │       └── TrackGaugeRS
     └── Formations
         └── Formation               (a consist of vehicles)
             ├── Designator
             ├── TrainOrder          (vehicle position in consist)
             ├── TrainEngine         (consist-level traction summary)
             │   └── TrainTractionMode
-            └── TrainDrivingResistance
-                ├── DrivingResistanceInfo
-                └── DaviesFormula   (Davis equation A + B·v + C·v²)
+            ├── FormationBrakeSystem (0..* trainBrakes)
+            │   └── AuxiliaryBrakes
+            ├── TiltingSpecification
+            ├── TrainDrivingResistance
+            │   ├── DrivingResistanceInfo
+            │   ├── DrivingResistanceDetails
+            │   └── DaviesFormula   (Davis equation A + B·v + C·v²)
+            └── FormationDecelerationCurve
 ```
 
 ```mermaid
