@@ -127,6 +127,29 @@ enum SimState {
 ///                        is outside its data range)
 /// - `speed_kmh`        — speed in km/h (null for timing trains)
 /// - `acceleration_mss` — acceleration in m/s² (null for timing trains)
+
+fn build_batch<'a>(
+    train_id_data:   &[&'a str],
+    event_kind_data: &[&'a str],
+    time_s_data:     &[f64],
+    position_m_data: &[Option<f64>],
+    speed_kmh_data:  &[Option<f64>],
+    accel_mss_data:  &[Option<f64>],
+) -> DataFrame {
+    let n = time_s_data.len();
+    DataFrame::new(
+        n,
+        vec![
+            Series::new("train_id".into(),         train_id_data).into(),
+            Series::new("event_kind".into(),        event_kind_data).into(),
+            Series::new("time_s".into(),            time_s_data).into(),
+            Series::new("position_m".into(),        position_m_data).into(),
+            Series::new("speed_kmh".into(),         speed_kmh_data).into(),
+            Series::new("acceleration_mss".into(),  accel_mss_data).into(),
+        ],
+    ).unwrap()
+}
+
 fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::path::Path, flush_rows: usize) {
     let steps = (duration / dt).round() as usize;
     let buf_cap = flush_rows.min(steps * trains.len());
@@ -333,17 +356,7 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
 
         if time_s_data.len() >= flush_rows {
             let n = time_s_data.len();
-            let batch = DataFrame::new(
-                n,
-                vec![
-                    Series::new("train_id".into(),          &train_id_data).into(),
-                    Series::new("event_kind".into(),        &event_kind_data).into(),
-                    Series::new("time_s".into(),            &time_s_data).into(),
-                    Series::new("position_m".into(),        &position_m_data).into(),
-                    Series::new("speed_kmh".into(),         &speed_kmh_data).into(),
-                    Series::new("acceleration_mss".into(),  &accel_mss_data).into(),
-                ],
-            ).unwrap();
+            let batch = build_batch(&train_id_data, &event_kind_data, &time_s_data, &position_m_data, &speed_kmh_data, &accel_mss_data);
             writer.write_batch(&batch)
                 .unwrap_or_else(|e| { eprintln!("Write error: {e}"); std::process::exit(1) });
             total_rows += n;
@@ -360,17 +373,7 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
     // Final flush: covers both normal queue exhaustion and the time-limit break.
     if !time_s_data.is_empty() {
         let n = time_s_data.len();
-        let batch = DataFrame::new(
-            n,
-            vec![
-                Series::new("train_id".into(),          &train_id_data).into(),
-                Series::new("event_kind".into(),        &event_kind_data).into(),
-                Series::new("time_s".into(),            &time_s_data).into(),
-                Series::new("position_m".into(),        &position_m_data).into(),
-                Series::new("speed_kmh".into(),         &speed_kmh_data).into(),
-                Series::new("acceleration_mss".into(),  &accel_mss_data).into(),
-            ],
-        ).unwrap();
+        let batch = build_batch(&train_id_data, &event_kind_data, &time_s_data, &position_m_data, &speed_kmh_data, &accel_mss_data);
         writer.write_batch(&batch)
             .unwrap_or_else(|e| { eprintln!("Write error (final flush): {e}"); std::process::exit(1) });
         total_rows += n;

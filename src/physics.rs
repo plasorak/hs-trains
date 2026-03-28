@@ -129,18 +129,18 @@ pub fn advance_train(state: &SimulatedState, params: &TrainDescription, driver: 
 
 pub fn step_trains(state: &SimulatedState, params: &TrainDescription, driver: &DriverInput, env: &Environment, dt: f64) -> SimulatedState {
     let speed = state.speed;
-    let breaking = driver.brake_ratio>0.0;
+    let braking = driver.brake_ratio>0.0;
 
     let low_speed_force = params.traction_force_at_standstill * driver.power_ratio;
     let high_speed_force = if speed > 0.1 { params.power * driver.power_ratio / speed } else { low_speed_force };
 
-    let traction_force = if !breaking {
+    let traction_force = if !braking {
         f64::min(low_speed_force, high_speed_force)
     } else {
         0.0
     };
 
-    let braking_force = if breaking { params.braking_force * driver.brake_ratio } else { 0.0 };
+    let braking_force = if braking { params.braking_force * driver.brake_ratio } else { 0.0 };
     // Gravity component along track (positive = uphill resistance)
     let gravity_force = params.mass * G * env.gradient;
 
