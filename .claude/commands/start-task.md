@@ -19,3 +19,5 @@ Then proceed with the coding task. When the work is done:
 7. Open a PR against `main` using `gh pr create --base main` with a short title and a summary covering what changed and why.
 
 Return the PR URL to the user when done.
+
+When you see changes that are uncommitted that you didn't do, ask the user what they want to do with it. It's likely they made manual changes and will want the changes in the PR.
