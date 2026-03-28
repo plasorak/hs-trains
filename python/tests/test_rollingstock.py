@@ -1,9 +1,11 @@
-"""Unit tests for the RailML 3.3 rollingstock pydantic-xml models."""
+"""Unit tests for the RailML 3.3 rollingstock pydantic-xml models and UI helpers."""
 
 from decimal import Decimal
 from xml.etree.ElementTree import fromstring
 
-from model.rollingstock import (
+import pytest
+
+from rusty_trains.model.rollingstock import (
     NS,
     Brakes,
     DaviesFormula,
@@ -435,3 +437,151 @@ class TestRoundTrip:
         assert restored.speed == Decimal("160")
         assert len(restored.designators) == 1
         assert restored.designators[0].register_name == "op"
+
+
+# ---------------------------------------------------------------------------
+# validate_xml
+# ---------------------------------------------------------------------------
+
+
+class TestValidateXml:
+    def test_raises_when_schema_missing(self, tmp_path, monkeypatch):
+        import rusty_trains.utils as utils_mod
+        monkeypatch.setattr(utils_mod, "_SCHEMA_PATH", tmp_path / "nonexistent.xsd")
+        # also clear the lru_cache so the patched path is used
+        utils_mod._load_schema.cache_clear()
+        with pytest.raises(FileNotFoundError, match="RailML XSD not found"):
+            utils_mod.validate_xml("<railML/>")
+
+
+# ---------------------------------------------------------------------------
+# UI helpers: _dec, _pos
+# ---------------------------------------------------------------------------
+
+
+class TestDecPos:
+    def test_dec_none(self):
+        from rusty_trains.rollingstock_ui import _dec
+        assert _dec(None) is None
+
+    def test_dec_valid(self):
+        from rusty_trains.rollingstock_ui import _dec
+        assert _dec("1.5") == Decimal("1.5")
+        assert _dec(42) == Decimal("42")
+
+    def test_dec_invalid_returns_none(self):
+        from rusty_trains.rollingstock_ui import _dec
+        assert _dec("not-a-number") is None
+
+    def test_pos_zero_returns_none(self):
+        from rusty_trains.rollingstock_ui import _pos
+        assert _pos(0) is None
+        assert _pos("0") is None
+
+    def test_pos_negative_returns_none(self):
+        from rusty_trains.rollingstock_ui import _pos
+        assert _pos(-1) is None
+
+    def test_pos_positive(self):
+        from rusty_trains.rollingstock_ui import _pos
+        assert _pos("3.14") == Decimal("3.14")
+
+
+# ---------------------------------------------------------------------------
+# _VehicleDraft.build
+# ---------------------------------------------------------------------------
+
+
+class TestVehicleDraftBuild:
+    def test_default_build_produces_vehicle(self):
+        from rusty_trains.rollingstock_ui import _VehicleDraft
+        vd = _VehicleDraft()
+        v = vd.build()
+        assert isinstance(v, Vehicle)
+
+    def test_build_sets_id(self):
+        from rusty_trains.rollingstock_ui import _VehicleDraft
+        vd = _VehicleDraft()
+        vd.id = "my_loco"
+        v = vd.build()
+        assert v.id == "my_loco"
+
+    def test_build_no_engine_when_flag_false(self):
+        from rusty_trains.rollingstock_ui import _VehicleDraft
+        vd = _VehicleDraft()
+        vd.has_engine = False
+        v = vd.build()
+        assert v.engines == []
+
+    def test_build_with_engine(self):
+        from rusty_trains.rollingstock_ui import _VehicleDraft
+        vd = _VehicleDraft()
+        vd.has_engine = True
+        vd.max_te = 200_000.0
+        vd.power = 1_000_000.0
+        vd.mode = "electric"
+        v = vd.build()
+        assert len(v.engines) == 1
+        assert v.engines[0].power_modes[0].mode == "electric"
+
+    def test_build_no_resistance_when_flag_false(self):
+        from rusty_trains.rollingstock_ui import _VehicleDraft
+        vd = _VehicleDraft()
+        vd.has_res = False
+        v = vd.build()
+        assert v.driving_resistance is None
+
+    def test_reset_from_existing_vehicle(self):
+        from rusty_trains.rollingstock_ui import _VehicleDraft
+        original = Vehicle(id="v_orig", speed=Decimal("200"), tare_weight=Decimal("55"))
+        vd = _VehicleDraft()
+        vd.reset(original, 0)
+        assert vd.id == "v_orig"
+        assert vd.speed == 200.0
+        assert vd.tare == 55.0
+
+
+# ---------------------------------------------------------------------------
+# _FormationDraft.build
+# ---------------------------------------------------------------------------
+
+
+class TestFormationDraftBuild:
+    def test_default_build_produces_formation(self):
+        from rusty_trains.rollingstock_ui import _FormationDraft
+        fd = _FormationDraft()
+        f = fd.build()
+        assert isinstance(f, Formation)
+
+    def test_build_sets_id(self):
+        from rusty_trains.rollingstock_ui import _FormationDraft
+        fd = _FormationDraft()
+        fd.id = "my_formation"
+        f = fd.build()
+        assert f.id == "my_formation"
+
+    def test_build_no_engine_when_flag_false(self):
+        from rusty_trains.rollingstock_ui import _FormationDraft
+        fd = _FormationDraft()
+        fd.has_engine = False
+        f = fd.build()
+        assert f.train_engines == []
+
+    def test_build_with_davies(self):
+        from rusty_trains.rollingstock_ui import _FormationDraft
+        fd = _FormationDraft()
+        fd.has_davies = True
+        fd.a_val = 4000.0
+        fd.b_val = 50.0
+        fd.c_val = 3.0
+        f = fd.build()
+        assert f.train_resistance is not None
+        df = f.train_resistance.davies_formula_factors
+        assert df.constant_factor_a == Decimal("4000")
+
+    def test_build_no_davies_when_flag_false(self):
+        from rusty_trains.rollingstock_ui import _FormationDraft
+        fd = _FormationDraft()
+        fd.has_davies = False
+        f = fd.build()
+        assert f.train_resistance is None

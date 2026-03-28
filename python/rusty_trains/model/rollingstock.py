@@ -102,17 +102,21 @@ class BrakeSystem(_Base, tag="vehicleBrakes", ns=_NS):
     air_brake_application_position: Optional[str] = attr(
         name="airBrakeApplicationPosition", default=None
     )
-    brake_type: Optional[str] = attr(name="brakeType", default=None)
+    brake_type: Optional[str] = attr(name="brakeType", default=None,
+        description="Technical type of brake system: vacuum or compressed air brake, hand brake, parking brake, etc.")
     emergency_brake_mass: Optional[Decimal] = attr(name="emergencyBrakeMass", default=None)
     emergency_brake_percentage: Optional[Decimal] = attr(
-        name="emergencyBrakePercentage", default=None
-    )
+        name="emergencyBrakePercentage", default=None,
+        description="Brake percentage for emergency brake operations; may differ from regular due to auxiliary brakes.")
     load_switch: Optional[str] = attr(name="loadSwitch", default=None)
-    max_deceleration: Optional[Decimal] = attr(name="maxDeceleration", default=None)
-    mean_deceleration: Optional[Decimal] = attr(name="meanDeceleration", default=None)
+    max_deceleration: Optional[Decimal] = attr(name="maxDeceleration", default=None,
+        description="Maximum possible momentary deceleration in m/s².")
+    mean_deceleration: Optional[Decimal] = attr(name="meanDeceleration", default=None,
+        description="Effective mean deceleration over a whole brake operation in m/s². Does not necessarily equal the mean of the deceleration table.")
     regular_brake_mass: Optional[Decimal] = attr(name="regularBrakeMass", default=None)
     regular_brake_percentage: Optional[Decimal] = attr(
-        name="regularBrakePercentage", default=None
+        name="regularBrakePercentage", default=None,
+        description="Brake percentage for normal brake operations."
     )
 
 
@@ -170,16 +174,24 @@ class FreightFacilities(_Base, tag="freightFacilities", ns=_NS):
 class DaviesFormula(_Base, tag="daviesFormulaFactors", ns=_NS):
     """Davis equation coefficients: R(N) = A + B·v + C·v²  (v in km/h)."""
 
-    constant_factor_a: Decimal = attr(name="constantFactorA")
-    speed_dependent_factor_b: Decimal = attr(name="speedDependentFactorB")
-    square_speed_dependent_factor_c: Decimal = attr(name="squareSpeedDependentFactorC")
+    constant_factor_a: Decimal = attr(name="constantFactorA",
+        description="Constant (speed-independent) term A of the Davis formula R(N) = A + B·v + C·v².")
+    speed_dependent_factor_b: Decimal = attr(name="speedDependentFactorB",
+        description="Speed-linear term B of the Davis formula R(N) = A + B·v + C·v²  (v in km/h).")
+    square_speed_dependent_factor_c: Decimal = attr(name="squareSpeedDependentFactorC",
+        description="Aerodynamic drag term C of the Davis formula R(N) = A + B·v + C·v²  (v in km/h).")
     mass_dependent: Optional[XmlBool] = attr(name="massDependent", default=None)
 
 
 class DrivingResistanceInfo(_Base, tag="info", ns=_NS):
-    air_drag_coefficient: Decimal = attr(name="airDragCoefficient")
-    cross_section_area: Decimal = attr(name="crossSectionArea")
-    rolling_resistance: Decimal = attr(name="rollingResistance")
+    """Key values for calculating driving resistance when no curve is given."""
+
+    air_drag_coefficient: Decimal = attr(name="airDragCoefficient",
+        description="Air drag coefficient (Cd). Used together with crossSectionArea and rollingResistance to describe running resistance.")
+    cross_section_area: Decimal = attr(name="crossSectionArea",
+        description="Cross-section area in m². Used together with airDragCoefficient and rollingResistance to describe running resistance.")
+    rolling_resistance: Decimal = attr(name="rollingResistance",
+        description="Rolling resistance in N/kN. Used together with airDragCoefficient and crossSectionArea to describe running resistance.")
 
 
 class DrivingResistanceDetails(_Base, tag="details", ns=_NS):
@@ -190,7 +202,10 @@ class DrivingResistanceDetails(_Base, tag="details", ns=_NS):
 
 
 class DrivingResistance(_Base, tag="drivingResistance", ns=_NS):
-    tunnel_factor: Optional[Decimal] = attr(name="tunnelFactor", default=None)
+    """Sum of resistances a vehicle must overcome to travel at constant or accelerated speed."""
+
+    tunnel_factor: Optional[Decimal] = attr(name="tunnelFactor", default=None,
+        description="Multiplier applied to driving resistance when travelling through a tunnel.")
     info: Optional[DrivingResistanceInfo] = element(tag="info", ns=_NS, default=None)
     details: Optional[DrivingResistanceDetails] = element(tag="details", ns=_NS, default=None)
 
@@ -198,7 +213,8 @@ class DrivingResistance(_Base, tag="drivingResistance", ns=_NS):
 class TrainDrivingResistance(_Base, tag="trainResistance", ns=_NS):
     """Formation-level driving resistance, adds Davies formula factors."""
 
-    tunnel_factor: Optional[Decimal] = attr(name="tunnelFactor", default=None)
+    tunnel_factor: Optional[Decimal] = attr(name="tunnelFactor", default=None,
+        description="Multiplier applied to driving resistance when travelling through a tunnel.")
     info: Optional[DrivingResistanceInfo] = element(tag="info", ns=_NS, default=None)
     details: Optional[DrivingResistanceDetails] = element(tag="details", ns=_NS, default=None)
     davies_formula_factors: Optional[DaviesFormula] = element(
@@ -212,8 +228,10 @@ class TrainDrivingResistance(_Base, tag="trainResistance", ns=_NS):
 
 
 class TractionInfo(_Base, tag="info", ns=_NS):
-    max_tractive_effort: Decimal = attr(name="maxTractiveEffort")
-    tractive_power: Decimal = attr(name="tractivePower")
+    max_tractive_effort: Decimal = attr(name="maxTractiveEffort",
+        description="Maximum tractive effort in N.")
+    tractive_power: Decimal = attr(name="tractivePower",
+        description="Maximum traction power in W.")
 
 
 class TractiveEffortCurve(_Base, tag="tractiveEffort", ns=_NS):
@@ -358,20 +376,28 @@ class VehiclePart(_Base, tag="vehiclePart", ns=_NS):
 
 class Vehicle(_Base, tag="vehicle", ns=_NS):
     id: str = attr(name="id", default_factory=_make_id)
-    speed: Optional[Decimal] = attr(name="speed", default=None)
-    brutto_weight: Optional[Decimal] = attr(name="bruttoWeight", default=None)
-    tare_weight: Optional[Decimal] = attr(name="tareWeight", default=None)
-    netto_weight: Optional[Decimal] = attr(name="nettoWeight", default=None)
+    speed: Optional[Decimal] = attr(name="speed", default=None,
+        description="Maximum permissible speed for the vehicle in km/h.")
+    brutto_weight: Optional[Decimal] = attr(name="bruttoWeight", default=None,
+        description="Mass ready to run incl. operating fluids; for passenger vehicles all seats taken at ~75 kg/person; for freight with full payload. In tonnes.")
+    tare_weight: Optional[Decimal] = attr(name="tareWeight", default=None,
+        description="Mass ready to run incl. operating fluids, no passengers, no payload, in tonnes. Used as vehicle mass in run-time calculations.")
+    netto_weight: Optional[Decimal] = attr(name="nettoWeight", default=None,
+        description="Maximum payload of the vehicle in tonnes.")
     timetable_weight: Optional[Decimal] = attr(name="timetableWeight", default=None)
     maximum_weight: Optional[Decimal] = attr(name="maximumWeight", default=None)
     maximum_axle_load: Optional[Decimal] = attr(name="maximumAxleLoad", default=None)
-    length: Optional[Decimal] = attr(name="length", default=None)
-    number_of_driven_axles: Optional[int] = attr(name="numberOfDrivenAxles", default=None)
+    length: Optional[Decimal] = attr(name="length", default=None,
+        description="Overall length of the vehicle over buffers or couplings in metres; used to calculate train length.")
+    number_of_driven_axles: Optional[int] = attr(name="numberOfDrivenAxles", default=None,
+        description="Number of driven axles. Must be > 0 for all vehicles with an engine element.")
     number_of_non_driven_axles: Optional[int] = attr(
-        name="numberOfNonDrivenAxles", default=None
-    )
-    adhesion_weight: Optional[Decimal] = attr(name="adhesionWeight", default=None)
-    rotating_mass_factor: Optional[Decimal] = attr(name="rotatingMassFactor", default=None)
+        name="numberOfNonDrivenAxles", default=None,
+        description="Number of non-driven axles of non-driven as well as self-driven vehicles.")
+    adhesion_weight: Optional[Decimal] = attr(name="adhesionWeight", default=None,
+        description="Weight in tonnes usable for traction (tare adhesion weight). Used to estimate the adhesion limit in run-time calculations.")
+    rotating_mass_factor: Optional[Decimal] = attr(name="rotatingMassFactor", default=None,
+        description="Factor applied to static mass to account for energy needed to accelerate/decelerate rotating masses. Typically 1.05–1.25.")
     effective_axle_distance: Optional[Decimal] = attr(
         name="effectiveAxleDistance", default=None
     )
@@ -407,8 +433,10 @@ class TrainOrder(_Base, tag="trainOrder", ns=_NS):
 
 
 class TrainEngine(_Base, tag="trainEngine", ns=_NS):
-    max_acceleration: Optional[Decimal] = attr(name="maxAcceleration", default=None)
-    mean_acceleration: Optional[Decimal] = attr(name="meanAcceleration", default=None)
+    max_acceleration: Optional[Decimal] = attr(name="maxAcceleration", default=None,
+        description="Maximum acceleration in m/s² possible with the traction system of the formation.")
+    mean_acceleration: Optional[Decimal] = attr(name="meanAcceleration", default=None,
+        description="Mean acceleration in m/s² possible with the traction system of the formation.")
     min_time_hold_speed: Optional[str] = attr(name="minTimeHoldSpeed", default=None)
     traction_mode: Optional[TrainTractionMode] = element(
         tag="tractionMode", ns=_NS, default=None
@@ -443,14 +471,21 @@ class FormationBrakeSystem(_Base, tag="trainBrakes", ns=_NS):
 
 
 class Formation(_Base, tag="formation", ns=_NS):
+    """Collection of vehicles coupled as a train for operation."""
+
     id: str = attr(name="id", default_factory=_make_id)
-    brutto_weight: Optional[Decimal] = attr(name="bruttoWeight", default=None)
-    tare_weight: Optional[Decimal] = attr(name="tareWeight", default=None)
-    netto_weight: Optional[Decimal] = attr(name="nettoWeight", default=None)
+    brutto_weight: Optional[Decimal] = attr(name="bruttoWeight", default=None,
+        description="Maximum overall weight (= tareWeight + nettoWeight) of the formation in tonnes.")
+    tare_weight: Optional[Decimal] = attr(name="tareWeight", default=None,
+        description="Empty weight (without payload, ready to run, incl. operating fluids) of the complete formation in tonnes.")
+    netto_weight: Optional[Decimal] = attr(name="nettoWeight", default=None,
+        description="Weight of maximum payload for the complete formation in tonnes.")
     timetable_weight: Optional[Decimal] = attr(name="timetableWeight", default=None)
     hauling_weight: Optional[Decimal] = attr(name="haulingWeight", default=None)
-    length: Optional[Decimal] = attr(name="length", default=None)
-    speed: Optional[Decimal] = attr(name="speed", default=None)
+    length: Optional[Decimal] = attr(name="length", default=None,
+        description="Overall length of the entire formation in metres.")
+    speed: Optional[Decimal] = attr(name="speed", default=None,
+        description="Maximum permissible speed in km/h of the entire formation, limited by the lowest maximum of contained vehicles.")
     maximum_axle_load: Optional[Decimal] = attr(name="maximumAxleLoad", default=None)
     maximum_cant_deficiency: Optional[Decimal] = attr(
         name="maximumCantDeficiency", default=None
