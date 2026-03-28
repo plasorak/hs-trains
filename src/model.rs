@@ -14,7 +14,7 @@ pub struct Trajectory {
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct DriverInput {
-    pub break_ratio: f64,
+    pub brake_ratio: f64,
     pub power_ratio: f64,
 }
 

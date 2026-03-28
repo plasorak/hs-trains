@@ -60,7 +60,7 @@ simulation:
         wind_speed: 0.0   # m/s (head-wind positive)
       driver:
         power_ratio: 0.8  # 0–1 throttle
-        break_ratio: 0.0  # 0–1 braking
+        brake_ratio: 0.0  # 0–1 braking
 ```
 
 ### Timing trains (`kind: timing`)

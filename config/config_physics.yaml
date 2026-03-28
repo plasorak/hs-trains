@@ -17,7 +17,7 @@ simulation:
         wind_speed: 0.0                     # m/s (head-wind positive)
       driver:
         power_ratio: 0.8                    # 0–1 throttle
-        break_ratio: 0.0                    # 0–1 braking
+        brake_ratio: 0.0                    # 0–1 braking
 
     - id: "train_2"
       kind: physics
@@ -33,4 +33,4 @@ simulation:
         wind_speed: 5.0                     # m/s head-wind
       driver:
         power_ratio: 1.0
-        break_ratio: 0.0
+        brake_ratio: 0.0
