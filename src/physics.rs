@@ -11,13 +11,13 @@ pub enum AdvanceTarget {
 
 #[allow(dead_code)]
 fn net_force_at_speed(v: f64, params: &TrainDescription, driver: &DriverInput, env: &Environment) -> f64 {
-    let braking = driver.break_ratio > 0.0;
+    let braking = driver.brake_ratio > 0.0;
 
     let low_speed_force = params.traction_force_at_standstill * driver.power_ratio;
     let high_speed_force = if v > 0.1 { params.power * driver.power_ratio / v } else { low_speed_force };
 
     let traction_force = if !braking { f64::min(low_speed_force, high_speed_force) } else { 0.0 };
-    let braking_force  = if  braking { params.braking_force * driver.break_ratio    } else { 0.0 };
+    let braking_force  = if  braking { params.braking_force * driver.brake_ratio    } else { 0.0 };
 
     let gravity_force      = params.mass * G * env.gradient;
     let drag_force         = params.drag_coeff * (v + env.wind_speed).powi(2);
@@ -79,7 +79,7 @@ pub fn advance_train(state: &SimulatedState, params: &TrainDescription, driver: 
             } else if a < 0.0 {
                 // When coasting above equilibrium (no brakes), cap deceleration at v_eq
                 // to prevent undershooting.  When braking there is no equilibrium above 0.
-                let v_floor = if driver.break_ratio == 0.0 {
+                let v_floor = if driver.brake_ratio == 0.0 {
                     terminal_speed(0.0, v0, params, driver, env).unwrap_or(0.0)
                 } else {
                     0.0
@@ -129,18 +129,18 @@ pub fn advance_train(state: &SimulatedState, params: &TrainDescription, driver: 
 
 pub fn step_trains(state: &SimulatedState, params: &TrainDescription, driver: &DriverInput, env: &Environment, dt: f64) -> SimulatedState {
     let speed = state.speed;
-    let breaking = driver.break_ratio>0.0;
+    let braking = driver.brake_ratio>0.0;
 
     let low_speed_force = params.traction_force_at_standstill * driver.power_ratio;
     let high_speed_force = if speed > 0.1 { params.power * driver.power_ratio / speed } else { low_speed_force };
 
-    let traction_force = if !breaking {
+    let traction_force = if !braking {
         f64::min(low_speed_force, high_speed_force)
     } else {
         0.0
     };
 
-    let braking_force = if breaking { params.braking_force * driver.break_ratio } else { 0.0 };
+    let braking_force = if braking { params.braking_force * driver.brake_ratio } else { 0.0 };
     // Gravity component along track (positive = uphill resistance)
     let gravity_force = params.mass * G * env.gradient;
 
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn test_accelerating_from_standstill() {
         let p = test_params();
-        let d = DriverInput { power_ratio: 0.8, break_ratio: 0.0 };
+        let d = DriverInput { power_ratio: 0.8, brake_ratio: 0.0 };
         let e = Environment { gradient: 0.0, wind_speed: 0.0 };
         let s0 = initial_state(0.0);
         assert_within("standstill",
@@ -224,7 +224,7 @@ mod tests {
     #[test]
     fn test_accelerating_from_standstill_distance() {
         let p = test_params();
-        let d = DriverInput { power_ratio: 0.8, break_ratio: 0.0 };
+        let d = DriverInput { power_ratio: 0.8, brake_ratio: 0.0 };
         let e = Environment { gradient: 0.0, wind_speed: 0.0 };
         let s0 = initial_state(0.0);
         let reference = step_reference(&s0, &p, &d, &e, 10.0);
@@ -236,7 +236,7 @@ mod tests {
     #[test]
     fn test_braking() {
         let p = test_params();
-        let d = DriverInput { power_ratio: 0.0, break_ratio: 0.5 };
+        let d = DriverInput { power_ratio: 0.0, brake_ratio: 0.5 };
         let e = Environment { gradient: 0.0, wind_speed: 0.0 };
         let s0 = initial_state(20.0); // 72 km/h
         assert_within("braking",
@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn test_braking_distance() {
         let p = test_params();
-        let d = DriverInput { power_ratio: 0.0, break_ratio: 0.5 };
+        let d = DriverInput { power_ratio: 0.0, brake_ratio: 0.5 };
         let e = Environment { gradient: 0.0, wind_speed: 0.0 };
         let s0 = initial_state(20.0);
         let reference = step_reference(&s0, &p, &d, &e, 10.0);
@@ -259,7 +259,7 @@ mod tests {
     #[test]
     fn test_positive_gradient() {
         let p = test_params();
-        let d = DriverInput { power_ratio: 0.8, break_ratio: 0.0 };
+        let d = DriverInput { power_ratio: 0.8, brake_ratio: 0.0 };
         let e = Environment { gradient: 0.02, wind_speed: 0.0 }; // 2% uphill
         let s0 = initial_state(10.0);
         assert_within("positive gradient",
@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn test_positive_gradient_distance() {
         let p = test_params();
-        let d = DriverInput { power_ratio: 0.8, break_ratio: 0.0 };
+        let d = DriverInput { power_ratio: 0.8, brake_ratio: 0.0 };
         let e = Environment { gradient: 0.02, wind_speed: 0.0 };
         let s0 = initial_state(10.0);
         let reference = step_reference(&s0, &p, &d, &e, 10.0);
@@ -282,7 +282,7 @@ mod tests {
     #[test]
     fn test_negative_gradient() {
         let p = test_params();
-        let d = DriverInput { power_ratio: 0.8, break_ratio: 0.0 };
+        let d = DriverInput { power_ratio: 0.8, brake_ratio: 0.0 };
         let e = Environment { gradient: -0.02, wind_speed: 0.0 }; // 2% downhill
         let s0 = initial_state(10.0);
         assert_within("negative gradient",
@@ -293,7 +293,7 @@ mod tests {
     #[test]
     fn test_negative_gradient_distance() {
         let p = test_params();
-        let d = DriverInput { power_ratio: 0.8, break_ratio: 0.0 };
+        let d = DriverInput { power_ratio: 0.8, brake_ratio: 0.0 };
         let e = Environment { gradient: -0.02, wind_speed: 0.0 };
         let s0 = initial_state(10.0);
         let reference = step_reference(&s0, &p, &d, &e, 10.0);

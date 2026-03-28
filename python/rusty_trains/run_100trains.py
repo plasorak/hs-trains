@@ -51,7 +51,7 @@ def make_train(index: int, rng: random.Random) -> dict:
         },
         "driver": {
             "power_ratio": round(r(*p["power_ratio"]), 2),
-            "break_ratio": 0.0,
+            "brake_ratio": 0.0,
         },
     }
 
