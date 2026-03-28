@@ -2,6 +2,9 @@
 
 A train network simulator written in Rust. Physics and timing trains can be freely mixed in a single simulation — time is always the outer loop, so every train advances together at each step.
 
+## Name
+hs-trains stands for "High Speed Train Routing And Infrastructure Network Simulator".
+
 ## Prerequisites
 
 | Tool | Purpose |
