@@ -21,7 +21,7 @@ import argparse
 import random
 from datetime import datetime, timezone
 
-import pandas as pd
+import polars as pl
 
 
 def make_berth_timing(
@@ -80,13 +80,16 @@ def main() -> None:
         start_ms = base_time_ms + i * 5 * 60 * 1000  # 5-minute headway
         all_rows.extend(make_berth_timing(train_id, args.berths, start_ms))
 
-    df = pd.DataFrame(all_rows).astype(
-        {"train_id": "string", "berth_id": "string", "timestamp_ms": "int64", "position_m": "float64"}
-    )
-    df.to_parquet(args.output, index=False)
+    df = pl.DataFrame(all_rows, schema={
+        "train_id": pl.String,
+        "berth_id": pl.String,
+        "timestamp_ms": pl.Int64,
+        "position_m": pl.Float64,
+    })
+    df.write_parquet(args.output)
 
     print(f"Written {len(df)} rows ({len(args.trains)} trains × {args.berths} berths) to '{args.output}'")
-    print(df.to_string(index=False))
+    print(df)
 
 
 if __name__ == "__main__":
