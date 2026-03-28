@@ -7,7 +7,7 @@ working in this repository.
 
 ## Repository Overview
 
-Rusty-trains is a **Discrete Event Simulator (DES)** for train networks written in Rust (edition 2024),
+hs-trains is a **Discrete Event Simulator (DES)** for train networks written in Rust (edition 2024),
 with Python helper scripts. It simulates physics-based and timing-based trains over a shared event queue.
 
 ---
