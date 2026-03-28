@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+The branch `main` is the main branch.
+
 ## Commands
 
 ```bash
@@ -67,3 +69,17 @@ Terminal velocity is found via bisection (52 iterations). Integration uses close
 ### Configuration
 
 YAML config files live in `config/`. See `config/config_mixed.yaml` for a minimal mixed physics+timing example. Timing trains reference Parquet files with schema `(train_id, berth_id, timestamp_ms, position_m)`.
+
+## Git workflow
+
+At the start of every coding task, before making any changes, run `/start-task` to ensure you are working on a fresh branch from `main`. When the work is done, commit, push, and open a PR against `main`.
+
+## Coding philosophy
+
+- **Simplicity first** — solve the problem at hand, not a generalised version of it. Three similar lines of code are better than a premature abstraction.
+- **Readability over cleverness** — code is read far more than it is written. Prefer clear, direct expressions over compact tricks.
+- **No unnecessary abstractions** — don't create helpers, traits, or wrapper types until they are needed by at least two concrete use-cases. Stubs and placeholders are fine; scaffolding for hypothetical futures is not.
+- **Honest placeholders** — incomplete code should be clearly marked (`#[allow(dead_code)]`, a `// TODO` comment, or a doc comment explaining what is missing), not hidden behind a facade.
+- **Explain "why", not "what"** — comments and doc strings should explain the invariant, the motivation, or the non-obvious constraint, not paraphrase the code itself.
+- **Use the type system** — prefer `Option<T>` over sentinel values, enums over stringly-typed state, and `Result` over panics at boundaries. Let the compiler carry the logic where it can.
+- **Minimal error handling** — only validate at real boundaries (user input, external files). Don't defensively handle things that cannot happen given the internal invariants.
