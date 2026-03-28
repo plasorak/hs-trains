@@ -3,7 +3,7 @@
 from decimal import Decimal
 from xml.etree.ElementTree import fromstring
 
-from model.rollingstock import (
+from rusty_trains.model.rollingstock import (
     NS,
     Brakes,
     DaviesFormula,
