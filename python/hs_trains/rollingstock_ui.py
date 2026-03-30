@@ -343,6 +343,28 @@ def _render_designators(items: list[dict], container: ui.column) -> None:
         )).props("flat dense")
 
 
+def _render_parts(parts: list[dict], vehicle_id: str, container: ui.column) -> None:
+    container.clear()
+    with container:
+        for i, p in enumerate(parts):
+            def _rm(_, i=i):
+                parts.pop(i)
+                _render_parts(parts, vehicle_id, container)
+            with ui.row().classes("items-center gap-2"):
+                ui.input("Part ID", value=p["id"]).bind_value(p, "id").classes("w-48")
+                ui.number("Order", value=p["order"], step=1).bind_value(p, "order").classes("w-20")
+                ui.select(_PART_CATS, value=p["cat"]).bind_value(p, "cat").classes("w-40")
+                ui.button("✕", on_click=_rm).props("flat dense color=negative")
+        ui.button("+ Part", on_click=lambda: (
+            parts.append({
+                "id": f"{vehicle_id}_part_{len(parts) + 1:02d}",
+                "order": float(len(parts) + 1),
+                "cat": "(none)",
+            }),
+            _render_parts(parts, vehicle_id, container),
+        )).props("flat dense")
+
+
 # ---------------------------------------------------------------------------
 # Sidebar lists
 # ---------------------------------------------------------------------------
@@ -443,28 +465,7 @@ def vehicle_form() -> None:
                 ui.label("Vehicle Parts").classes("text-subtitle2")
                 parts_cont = ui.column().classes("w-full")
 
-                def _render_parts():
-                    parts_cont.clear()
-                    with parts_cont:
-                        for i, p in enumerate(vd.parts):
-                            def _rm(_, i=i):
-                                vd.parts.pop(i)
-                                _render_parts()
-                            with ui.row().classes("items-center gap-2"):
-                                ui.input("Part ID", value=p["id"]).bind_value(p, "id").classes("w-48")
-                                ui.number("Order", value=p["order"], step=1).bind_value(p, "order").classes("w-20")
-                                ui.select(_PART_CATS, value=p["cat"]).bind_value(p, "cat").classes("w-40")
-                                ui.button("✕", on_click=_rm).props("flat dense color=negative")
-                        ui.button("+ Part", on_click=lambda: (
-                            vd.parts.append({
-                                "id": f"{vd.id}_part_{len(vd.parts) + 1:02d}",
-                                "order": float(len(vd.parts) + 1),
-                                "cat": "(none)",
-                            }),
-                            _render_parts(),
-                        )).props("flat dense")
-
-                _render_parts()
+                _render_parts(vd.parts, vd.id, parts_cont)
 
             with ui.tab_panel(t_engine):
                 ui.switch("Vehicle has an engine", value=vd.has_engine).bind_value(vd, "has_engine")
