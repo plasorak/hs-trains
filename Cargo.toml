@@ -12,3 +12,4 @@ clap         = { version = "4",    features = ["derive"] }
 indicatif    = "0.17"
 rayon        = "1"
 rand         = "0.8"
+roxmltree    = "0.20"

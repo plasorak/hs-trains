@@ -1,0 +1,29 @@
+simulation:
+  time_step_s: 30.0                     # integration step (s)
+  duration_s:  2000.0                   # total simulated time (s)
+
+  trains:
+    # Physics is now sourced from a RailML 3.3 rollingstock file.
+    # The Rust engine reads the named formation and derives TrainDescription
+    # from it; environment and driver inputs remain here as operational config.
+    - id: "train_1"
+      kind: railml
+      railml_file: output.xml
+      formation_id: formation_class66_mk3
+      environment:
+        gradient: 0.01                  # rise/run (1 % uphill)
+        wind_speed: 0.0                 # m/s (head-wind positive)
+      driver:
+        power_ratio: 0.8                # 0–1 throttle
+        brake_ratio: 0.0                # 0–1 braking
+
+    - id: "train_2"
+      kind: railml
+      railml_file: output.xml
+      formation_id: formation_class66_mk3
+      environment:
+        gradient: 0.0
+        wind_speed: 5.0                 # m/s head-wind
+      driver:
+        power_ratio: 1.0
+        brake_ratio: 0.0

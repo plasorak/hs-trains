@@ -27,6 +27,7 @@ from hs_trains.model.rollingstock import (
     DrivingResistanceInfo,
     Engine,
     Formation,
+    FormationBrakeSystem,
     Formations,
     PowerMode,
     RailML,
@@ -202,9 +203,22 @@ def make_formation(loco: Vehicle, coaches: list[Vehicle]) -> Formation:
             TrainEngine(
                 max_acceleration=Decimal("0.40"),
                 mean_acceleration=Decimal("0.25"),
-                traction_mode=TrainTractionMode(mode="diesel", is_primary_mode=True),
+                traction_mode=TrainTractionMode(
+                    mode="diesel",
+                    is_primary_mode=True,
+                    traction_data=TractionData(
+                        info=TractionInfo(
+                            # Class 66 peak traction (formation-level aggregate).
+                            max_tractive_effort=Decimal("270000"),
+                            tractive_power=Decimal("2420000"),
+                        )
+                    ),
+                ),
             )
         ],
+        # Mass-weighted mean deceleration across the formation's vehicles over the
+        # full speed range.  Used by the Rust physics engine as braking_force = mean_decel × mass.
+        train_brakes=[FormationBrakeSystem(mean_deceleration=Decimal("0.80"))],
         train_resistance=TrainDrivingResistance(
             davies_formula_factors=DaviesFormula(
                 constant_factor_a=Decimal("3800"),

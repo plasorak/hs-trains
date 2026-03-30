@@ -65,7 +65,7 @@ impl TrainState {
     }
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone)]
 pub struct TrainDescription {
     pub power: f64,       // Max Watts
     pub traction_force_at_standstill: f64, // N
