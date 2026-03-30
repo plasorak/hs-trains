@@ -121,7 +121,7 @@ class _BrakeSystemBase(_Base):
 
 
 class BrakeSystem(_BrakeSystemBase, tag="vehicleBrakes", ns=_NS):
-    """One brake-system configuration (vehicle or formation level)."""
+    """Vehicle-level brake system configuration (tag: vehicleBrakes)."""
 
 
 # ---------------------------------------------------------------------------

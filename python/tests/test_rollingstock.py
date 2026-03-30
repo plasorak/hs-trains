@@ -7,6 +7,8 @@ import pytest
 
 from hs_trains.model.rollingstock import (
     NS,
+    AuxiliaryBrakes,
+    BrakeSystem,
     Brakes,
     DaviesFormula,
     DecelerationCurve,
@@ -15,6 +17,7 @@ from hs_trains.model.rollingstock import (
     DrivingResistanceInfo,
     Engine,
     Formation,
+    FormationBrakeSystem,
     Formations,
     PowerMode,
     RailML,
@@ -492,6 +495,72 @@ class TestNamespace:
 
     def test_namespace_uri(self):
         assert NS == "https://www.railml.org/schemas/3.3"
+
+
+# ---------------------------------------------------------------------------
+# BrakeSystem / FormationBrakeSystem
+# ---------------------------------------------------------------------------
+
+
+class TestBrakeSystem:
+    def test_xml_tag(self):
+        el = _xml(BrakeSystem())
+        assert el.tag == _clark("vehicleBrakes")
+
+    def test_shared_fields_serialised(self):
+        # Fields from _BrakeSystemBase must serialise correctly on BrakeSystem.
+        bs = BrakeSystem(
+            brake_type="compressedAirBrake",
+            regular_brake_percentage=Decimal("90"),
+            max_deceleration=Decimal("1.2"),
+        )
+        el = _xml(bs)
+        assert el.get("brakeType") == "compressedAirBrake"
+        assert el.get("regularBrakePercentage") == "90"
+        assert el.get("maxDeceleration") == "1.2"
+
+    def test_round_trip(self):
+        original = BrakeSystem(
+            brake_type="compressedAirBrake",
+            regular_brake_percentage=Decimal("90"),
+            emergency_brake_percentage=Decimal("110"),
+            auxiliary_brakes=[AuxiliaryBrakes(E=True)],
+        )
+        xml_str = original.to_xml(encoding="unicode", exclude_none=True)
+        restored = BrakeSystem.from_xml(xml_str)
+        assert restored.brake_type == "compressedAirBrake"
+        assert restored.regular_brake_percentage == Decimal("90")
+        assert restored.emergency_brake_percentage == Decimal("110")
+        assert len(restored.auxiliary_brakes) == 1
+        assert restored.auxiliary_brakes[0].E is True
+
+
+class TestFormationBrakeSystem:
+    def test_xml_tag(self):
+        el = _xml(FormationBrakeSystem())
+        assert el.tag == _clark("trainBrakes")
+
+    def test_shared_fields_serialised(self):
+        # Same fields as BrakeSystem but under a different XML tag.
+        fbs = FormationBrakeSystem(
+            brake_type="vacuumBrake",
+            mean_deceleration=Decimal("0.9"),
+        )
+        el = _xml(fbs)
+        assert el.get("brakeType") == "vacuumBrake"
+        assert el.get("meanDeceleration") == "0.9"
+
+    def test_round_trip(self):
+        original = FormationBrakeSystem(
+            brake_type="vacuumBrake",
+            regular_brake_mass=Decimal("80"),
+            load_switch="G",
+        )
+        xml_str = original.to_xml(encoding="unicode", exclude_none=True)
+        restored = FormationBrakeSystem.from_xml(xml_str)
+        assert restored.brake_type == "vacuumBrake"
+        assert restored.regular_brake_mass == Decimal("80")
+        assert restored.load_switch == "G"
 
 
 # ---------------------------------------------------------------------------
