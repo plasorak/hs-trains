@@ -9,7 +9,6 @@ pub enum AdvanceTarget {
     Distance(f64), // metres to travel
 }
 
-#[allow(dead_code)]
 fn net_force_at_speed(v: f64, params: &TrainDescription, driver: &DriverInput, env: &Environment) -> f64 {
     let braking = driver.brake_ratio > 0.0;
 
@@ -129,29 +128,8 @@ pub fn advance_train(state: &SimulatedState, params: &TrainDescription, driver: 
 
 pub fn step_trains(state: &SimulatedState, params: &TrainDescription, driver: &DriverInput, env: &Environment, dt: f64) -> SimulatedState {
     let speed = state.speed;
-    let braking = driver.brake_ratio>0.0;
 
-    let low_speed_force = params.traction_force_at_standstill * driver.power_ratio;
-    let high_speed_force = if speed > 0.1 { params.power * driver.power_ratio / speed } else { low_speed_force };
-
-    let traction_force = if !braking {
-        f64::min(low_speed_force, high_speed_force)
-    } else {
-        0.0
-    };
-
-    let braking_force = if braking { params.braking_force * driver.brake_ratio } else { 0.0 };
-    // Gravity component along track (positive = uphill resistance)
-    let gravity_force = params.mass * G * env.gradient;
-
-    // Aerodynamic drag: F = c * v²
-    let drag_force = params.drag_coeff * (speed+env.wind_speed) * (speed+env.wind_speed);
-
-    // Rolling resistance (Davis equation simplified: ~0.002 * mass * g)
-    let rolling_resistance = 0.002 * params.mass * G;
-
-    // Net force
-    let net_force = traction_force - gravity_force - drag_force - rolling_resistance - braking_force;
+    let net_force = net_force_at_speed(speed, params, driver, env);
 
     // --- Kinematics (Euler integration) ---
     let acceleration = net_force / params.mass;
