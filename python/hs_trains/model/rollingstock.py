@@ -93,8 +93,8 @@ class AuxiliaryBrakes(_Base, tag="auxiliaryBrakes", ns=_NS):
     Wb: Optional[XmlBool] = attr(name="Wb", default=None)  # eddy current
 
 
-class BrakeSystem(_Base, tag="vehicleBrakes", ns=_NS):
-    """One brake-system configuration (vehicle or formation level)."""
+class _BrakeSystemBase(_Base):
+    """Shared fields for vehicle- and formation-level brake system configurations."""
 
     auxiliary_brakes: list[AuxiliaryBrakes] = element(
         tag="auxiliaryBrakes", ns=_NS, default_factory=list
@@ -118,6 +118,10 @@ class BrakeSystem(_Base, tag="vehicleBrakes", ns=_NS):
         name="regularBrakePercentage", default=None,
         description="Brake percentage for normal brake operations."
     )
+
+
+class BrakeSystem(_BrakeSystemBase, tag="vehicleBrakes", ns=_NS):
+    """One brake-system configuration (vehicle or formation level)."""
 
 
 # ---------------------------------------------------------------------------
@@ -451,27 +455,8 @@ class FormationDecelerationCurve(_Base, tag="decelerationTable", ns=_NS):
     value_table: ValueTable = element(tag="valueTable", ns=_NS)
 
 
-class FormationBrakeSystem(_Base, tag="trainBrakes", ns=_NS):
+class FormationBrakeSystem(_BrakeSystemBase, tag="trainBrakes", ns=_NS):
     """Formation-level brake system configuration (same fields as BrakeSystem)."""
-
-    auxiliary_brakes: list[AuxiliaryBrakes] = element(
-        tag="auxiliaryBrakes", ns=_NS, default_factory=list
-    )
-    air_brake_application_position: Optional[str] = attr(
-        name="airBrakeApplicationPosition", default=None
-    )
-    brake_type: Optional[str] = attr(name="brakeType", default=None)
-    emergency_brake_mass: Optional[Decimal] = attr(name="emergencyBrakeMass", default=None)
-    emergency_brake_percentage: Optional[Decimal] = attr(
-        name="emergencyBrakePercentage", default=None
-    )
-    load_switch: Optional[str] = attr(name="loadSwitch", default=None)
-    max_deceleration: Optional[Decimal] = attr(name="maxDeceleration", default=None)
-    mean_deceleration: Optional[Decimal] = attr(name="meanDeceleration", default=None)
-    regular_brake_mass: Optional[Decimal] = attr(name="regularBrakeMass", default=None)
-    regular_brake_percentage: Optional[Decimal] = attr(
-        name="regularBrakePercentage", default=None
-    )
 
 
 class Formation(_Base, tag="formation", ns=_NS):
