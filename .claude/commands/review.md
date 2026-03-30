@@ -16,3 +16,6 @@ Review the above changes for:
 4. Performance concerns
 
 Give specific, actionable feedback per file.
+
+## Submit the review on github
+Using the Github CLI, add the comment to the PR.
