@@ -201,22 +201,22 @@ class DrivingResistanceDetails(_Base, tag="details", ns=_NS):
     value_table: Optional[ValueTable] = element(tag="valueTable", ns=_NS, default=None)
 
 
-class DrivingResistance(_Base, tag="drivingResistance", ns=_NS):
+class _DrivingResistanceBase(_Base):
+    """Shared fields for vehicle- and formation-level driving resistance."""
+
+    tunnel_factor: Optional[Decimal] = attr(name="tunnelFactor", default=None,
+        description="Multiplier applied to driving resistance when travelling through a tunnel.")
+    info: Optional[DrivingResistanceInfo] = element(tag="info", ns=_NS, default=None)
+    details: Optional[DrivingResistanceDetails] = element(tag="details", ns=_NS, default=None)
+
+
+class DrivingResistance(_DrivingResistanceBase, tag="drivingResistance", ns=_NS):
     """Sum of resistances a vehicle must overcome to travel at constant or accelerated speed."""
 
-    tunnel_factor: Optional[Decimal] = attr(name="tunnelFactor", default=None,
-        description="Multiplier applied to driving resistance when travelling through a tunnel.")
-    info: Optional[DrivingResistanceInfo] = element(tag="info", ns=_NS, default=None)
-    details: Optional[DrivingResistanceDetails] = element(tag="details", ns=_NS, default=None)
 
-
-class TrainDrivingResistance(_Base, tag="trainResistance", ns=_NS):
+class TrainDrivingResistance(_DrivingResistanceBase, tag="trainResistance", ns=_NS):
     """Formation-level driving resistance, adds Davies formula factors."""
 
-    tunnel_factor: Optional[Decimal] = attr(name="tunnelFactor", default=None,
-        description="Multiplier applied to driving resistance when travelling through a tunnel.")
-    info: Optional[DrivingResistanceInfo] = element(tag="info", ns=_NS, default=None)
-    details: Optional[DrivingResistanceDetails] = element(tag="details", ns=_NS, default=None)
     davies_formula_factors: Optional[DaviesFormula] = element(
         tag="daviesFormulaFactors", ns=_NS, default=None
     )
@@ -247,16 +247,20 @@ class TractionData(_Base, tag="tractionData", ns=_NS):
     details: Optional[TractionDetails] = element(tag="details", ns=_NS, default=None)
 
 
-class PowerMode(_Base, tag="powerMode", ns=_NS):
+class _TractionModeBase(_Base):
+    """Shared fields for vehicle- and formation-level traction modes."""
+
     mode: Literal["diesel", "electric", "battery"] = attr(name="mode")
     is_primary_mode: XmlBool = attr(name="isPrimaryMode", default=True)
     traction_data: Optional[TractionData] = element(tag="tractionData", ns=_NS, default=None)
 
 
-class TrainTractionMode(_Base, tag="tractionMode", ns=_NS):
-    mode: Literal["diesel", "electric", "battery"] = attr(name="mode")
-    is_primary_mode: XmlBool = attr(name="isPrimaryMode", default=True)
-    traction_data: Optional[TractionData] = element(tag="tractionData", ns=_NS, default=None)
+class PowerMode(_TractionModeBase, tag="powerMode", ns=_NS):
+    """Traction mode for a single vehicle."""
+
+
+class TrainTractionMode(_TractionModeBase, tag="tractionMode", ns=_NS):
+    """Traction mode for a formation."""
 
 
 class Engine(_Base, tag="engine", ns=_NS):
