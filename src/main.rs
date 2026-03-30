@@ -153,7 +153,7 @@ fn build_batch<'a>(
 /// Write buffered rows to the Parquet file and clear the buffers.
 /// Extracted to avoid duplicating the flush logic between the mid-loop check and the final flush.
 fn flush_batch<W: std::io::Write>(
-    writer:          &mut polars_io::parquet::write::BatchedWriter<W>,
+    writer:          &mut polars::io::parquet::write::BatchedWriter<W>,
     train_id_data:   &mut Vec<&str>,
     event_kind_data: &mut Vec<&'static str>,
     time_s_data:     &mut Vec<f64>,
@@ -162,11 +162,12 @@ fn flush_batch<W: std::io::Write>(
     accel_mss_data:  &mut Vec<Option<f64>>,
     total_rows:      &mut usize,
     pb:              &ProgressBar,
+    label:           &str,
 ) {
     let n = time_s_data.len();
     let batch = build_batch(train_id_data, event_kind_data, time_s_data, position_m_data, speed_kmh_data, accel_mss_data);
     writer.write_batch(&batch)
-        .unwrap_or_else(|e| { eprintln!("Write error: {e}"); std::process::exit(1) });
+        .unwrap_or_else(|e| { eprintln!("Write error ({label}): {e}"); std::process::exit(1) });
     *total_rows += n;
     pb.println(format!("  flushed {n} rows (total: {total_rows})"));
     train_id_data.clear();
@@ -382,13 +383,23 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
         }
 
         if time_s_data.len() >= flush_rows {
-            flush_batch(&mut writer, &mut train_id_data, &mut event_kind_data, &mut time_s_data, &mut position_m_data, &mut speed_kmh_data, &mut accel_mss_data, &mut total_rows, &pb);
+            flush_batch(
+                &mut writer,
+                &mut train_id_data, &mut event_kind_data,
+                &mut time_s_data, &mut position_m_data, &mut speed_kmh_data, &mut accel_mss_data,
+                &mut total_rows, &pb, "mid-loop",
+            );
         }
     }
 
     // Final flush: covers both normal queue exhaustion and the time-limit break.
     if !time_s_data.is_empty() {
-        flush_batch(&mut writer, &mut train_id_data, &mut event_kind_data, &mut time_s_data, &mut position_m_data, &mut speed_kmh_data, &mut accel_mss_data, &mut total_rows, &pb);
+        flush_batch(
+            &mut writer,
+            &mut train_id_data, &mut event_kind_data,
+            &mut time_s_data, &mut position_m_data, &mut speed_kmh_data, &mut accel_mss_data,
+            &mut total_rows, &pb, "final flush",
+        );
     }
 
     pb.finish_and_clear();

@@ -6,7 +6,6 @@ license = "MIT"
 
 [dependencies]
 polars       = { version = "0.53", features = ["parquet"] }
-polars-io    = { version = "0.53", features = ["parquet"] }
 serde        = { version = "1",    features = ["derive"] }
 serde_yaml_ng = "0.9"
 clap         = { version = "4",    features = ["derive"] }
