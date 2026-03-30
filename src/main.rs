@@ -1,5 +1,6 @@
 mod physics;
 mod model;
+mod rollingstock;
 mod timing;
 mod scheduler;
 
@@ -39,9 +40,33 @@ struct Config {
     simulation: SimulationConfig,
 }
 
-/// Per-train configuration, tagged by `kind: physics | timing`.
+/// Per-train configuration as written in the YAML file.
+///
+/// `kind: railml` trains reference an external RailML file; the physics parameters
+/// are loaded from the nominated formation at startup.  `kind: timing` trains
+/// replay berth-timing Parquet data unchanged.
 #[derive(serde::Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
+#[serde(tag = "kind")]
+enum TrainConfigYaml {
+    #[serde(rename = "railml")]
+    RailML {
+        id: String,
+        railml_file: String,
+        formation_id: String,
+        environment: Environment,
+        driver: DriverInput,
+    },
+    #[serde(rename = "timing")]
+    Timing {
+        id: String,
+        parquet_file: String,
+    },
+}
+
+/// Resolved per-train configuration used at runtime.
+///
+/// `Physics` is identical to what was previously `TrainConfig::Physics`; the
+/// RailML file has already been read and the `TrainDescription` populated.
 enum TrainConfig {
     Physics {
         id: String,
@@ -63,13 +88,30 @@ impl TrainConfig {
     }
 }
 
+fn resolve_train(yaml: TrainConfigYaml) -> TrainConfig {
+    match yaml {
+        TrainConfigYaml::RailML { id, railml_file, formation_id, environment, driver } => {
+            let train = rollingstock::load_formation(
+                std::path::Path::new(&railml_file),
+                &formation_id,
+            )
+            .unwrap_or_else(|e| {
+                eprintln!("Error loading rollingstock for train '{id}': {e}");
+                std::process::exit(1)
+            });
+            TrainConfig::Physics { id, train, environment, driver }
+        }
+        TrainConfigYaml::Timing { id, parquet_file } => TrainConfig::Timing { id, parquet_file },
+    }
+}
+
 fn default_flush_rows() -> usize { 1_000_000 }
 
 #[derive(serde::Deserialize)]
 struct SimulationConfig {
     time_step_s: f64,
     duration_s: f64,
-    trains: Vec<TrainConfig>,
+    trains: Vec<TrainConfigYaml>,
     /// Maximum number of rows to buffer before flushing a Parquet row group.
     /// Row-based (not step-based) so the buffer size stays bounded regardless
     /// of the number of trains. Defaults to 1 000 000.
@@ -92,12 +134,13 @@ fn main() {
         .unwrap_or_else(|e| { eprintln!("Invalid config: {e}"); std::process::exit(1) });
 
     let sim = config.simulation;
+    let trains: Vec<TrainConfig> = sim.trains.into_iter().map(resolve_train).collect();
     println!(
         "Running simulation: {} train(s), dt={}s, duration={}s, flush every {} rows",
-        sim.trains.len(), sim.time_step_s, sim.duration_s, sim.flush_rows
+        trains.len(), sim.time_step_s, sim.duration_s, sim.flush_rows
     );
 
-    run_simulation(&sim.trains, sim.time_step_s, sim.duration_s, output_path, sim.flush_rows);
+    run_simulation(&trains, sim.time_step_s, sim.duration_s, output_path, sim.flush_rows);
 }
 
 // ---------------------------------------------------------------------------
