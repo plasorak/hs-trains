@@ -34,8 +34,10 @@ impl TimingTrace {
     ///
     /// Speed and acceleration cannot be derived from berth timing data alone.
     pub fn load(path: &Path, train_id: &str) -> PolarsResult<Self> {
-        let file = File::open(path)
-            .map_err(|e| PolarsError::IO { error: Arc::new(e), msg: None })?;
+        let file = File::open(path).map_err(|e| PolarsError::IO {
+            error: Arc::new(e),
+            msg: None,
+        })?;
         let df = ParquetReader::new(file).finish()?;
 
         // Filter rows matching the requested train_id.
@@ -50,36 +52,54 @@ impl TimingTrace {
         let df = df.sort(["timestamp_ms"], SortMultipleOptions::default())?;
 
         let timestamps = df.column("timestamp_ms")?.i64()?;
-        let positions  = df.column("position_m")?.f64()?;
+        let positions = df.column("position_m")?.f64()?;
 
         let mut times_ms: Vec<i64> = Vec::with_capacity(df.height());
         let mut positions_m: Vec<f64> = Vec::with_capacity(df.height());
         for i in 0..df.height() {
-            let Some(ts)  = timestamps.get(i) else { continue };
-            let Some(pos) = positions.get(i)  else { continue };
+            let Some(ts) = timestamps.get(i) else {
+                continue;
+            };
+            let Some(pos) = positions.get(i) else {
+                continue;
+            };
             times_ms.push(ts);
             positions_m.push(pos);
         }
 
         if times_ms.is_empty() {
-            return Ok(Self { times_s: vec![], positions_m: vec![] });
+            return Ok(Self {
+                times_s: vec![],
+                positions_m: vec![],
+            });
         }
 
         let t0 = times_ms[0];
         let times_s = times_ms.iter().map(|&t| (t - t0) as f64 / 1000.0).collect();
-        Ok(Self { times_s, positions_m })
+        Ok(Self {
+            times_s,
+            positions_m,
+        })
     }
 
     /// Linearly interpolate position at `t` seconds from trace start.
     /// Returns `None` if `t` is outside the trace time range or the trace is empty.
     pub fn position_at(&self, t: f64) -> Option<f64> {
-        if self.times_s.is_empty() { return None; }
+        if self.times_s.is_empty() {
+            return None;
+        }
         let t_last = *self.times_s.last().unwrap();
-        if t < self.times_s[0] || t > t_last { return None; }
+        if t < self.times_s[0] || t > t_last {
+            return None;
+        }
 
         let idx = self.times_s.partition_point(|&ts| ts <= t);
-        if idx == 0 { return Some(self.positions_m[0]); }
-        if idx >= self.times_s.len() { return Some(*self.positions_m.last().unwrap()); }
+        if idx == 0 {
+            return Some(self.positions_m[0]);
+        }
+        if idx >= self.times_s.len() {
+            return Some(*self.positions_m.last().unwrap());
+        }
 
         let t0 = self.times_s[idx - 1];
         let t1 = self.times_s[idx];

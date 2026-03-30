@@ -62,12 +62,23 @@ pub struct Event {
 }
 
 // Min-heap ordering: smaller time → higher priority (via BinaryHeap's max-heap).
-impl PartialEq  for Event { fn eq(&self, other: &Self) -> bool { self.time == other.time } }
-impl Eq         for Event {}
-impl PartialOrd for Event { fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) } }
+impl PartialEq for Event {
+    fn eq(&self, other: &Self) -> bool {
+        self.time == other.time
+    }
+}
+impl Eq for Event {}
+impl PartialOrd for Event {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 impl Ord for Event {
     fn cmp(&self, other: &Self) -> Ordering {
-        other.time.partial_cmp(&self.time).unwrap_or(Ordering::Equal)
+        other
+            .time
+            .partial_cmp(&self.time)
+            .unwrap_or(Ordering::Equal)
     }
 }
 
@@ -80,14 +91,18 @@ impl Ord for Event {
 /// Cancellation is lazy: cancelled events are silently skipped on [`pop`]
 /// rather than being removed from the heap immediately (O(1) cancel, O(log n) pop).
 pub struct EventQueue {
-    heap:      BinaryHeap<Event>,
+    heap: BinaryHeap<Event>,
     cancelled: HashSet<EventId>,
-    next_id:   u64,
+    next_id: u64,
 }
 
 impl EventQueue {
     pub fn new() -> Self {
-        Self { heap: BinaryHeap::new(), cancelled: HashSet::new(), next_id: 0 }
+        Self {
+            heap: BinaryHeap::new(),
+            cancelled: HashSet::new(),
+            next_id: 0,
+        }
     }
 
     /// Schedule a new event. Returns an [`EventId`] that can be passed to
@@ -95,7 +110,12 @@ impl EventQueue {
     pub fn push(&mut self, time: f64, target: Option<EntityRef>, kind: EventKind) -> EventId {
         let id = EventId(self.next_id);
         self.next_id += 1;
-        self.heap.push(Event { id, time, target, kind });
+        self.heap.push(Event {
+            id,
+            time,
+            target,
+            kind,
+        });
         id
     }
 
@@ -119,6 +139,10 @@ impl EventQueue {
         }
     }
 
-    pub fn len(&self) -> usize       { self.heap.len() }
-    pub fn is_empty(&self) -> bool   { self.heap.is_empty() }
+    pub fn len(&self) -> usize {
+        self.heap.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.heap.is_empty()
+    }
 }

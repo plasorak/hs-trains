@@ -1,13 +1,13 @@
 #![allow(dead_code)]
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Position {
-    pub x:f64,
-    pub y:f64,
-    pub z:f64,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Trajectory {
     pub points: Vec<Position>,
 }
@@ -22,17 +22,17 @@ pub struct DriverInput {
 /// known, so they are stored as plain `f64`.
 #[derive(Debug, Clone)]
 pub struct SimulatedState {
-    pub position: Position,   // metres
-    pub speed: f64,           // m/s
-    pub acceleration: f64,    // m/s²
+    pub position: Position, // metres
+    pub speed: f64,         // m/s
+    pub acceleration: f64,  // m/s²
 }
 
 /// Train state derived from berth timing data. Speed and acceleration are not
 /// available from timing records, so only position and timestamp are stored.
 #[derive(Debug, Clone)]
 pub struct ObservedState {
-    pub position: Position,   // metres along route
-    pub timestamp_ms: i64,    // Unix epoch, milliseconds
+    pub position: Position, // metres along route
+    pub timestamp_ms: i64,  // Unix epoch, milliseconds
 }
 
 /// A train's state, which is either physics-simulated or timing-observed.
@@ -46,39 +46,39 @@ impl TrainState {
     pub fn position(&self) -> &Position {
         match self {
             TrainState::Simulated(s) => &s.position,
-            TrainState::Observed(o)  => &o.position,
+            TrainState::Observed(o) => &o.position,
         }
     }
 
     pub fn speed(&self) -> Option<f64> {
         match self {
             TrainState::Simulated(s) => Some(s.speed),
-            TrainState::Observed(_)  => None,
+            TrainState::Observed(_) => None,
         }
     }
 
     pub fn acceleration(&self) -> Option<f64> {
         match self {
             TrainState::Simulated(s) => Some(s.acceleration),
-            TrainState::Observed(_)  => None,
+            TrainState::Observed(_) => None,
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct TrainDescription {
-    pub power: f64,       // Max Watts
+    pub power: f64,                        // Max Watts
     pub traction_force_at_standstill: f64, // N
     pub max_speed: f64,
-    pub mass: f64,        // kg
-    pub drag_coeff: f64,  // aerodynamic drag coefficient (kg/m), tune as needed
+    pub mass: f64,          // kg
+    pub drag_coeff: f64,    // aerodynamic drag coefficient (kg/m), tune as needed
     pub braking_force: f64, // Newtons, maximum braking force
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Environment {
     pub wind_speed: f64,
-    pub gradient: f64,    // rise/run (e.g. 0.01 = 1% grade)
+    pub gradient: f64, // rise/run (e.g. 0.01 = 1% grade)
 }
 
 #[derive(Debug, Clone)]

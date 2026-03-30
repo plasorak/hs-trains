@@ -33,7 +33,13 @@ pub fn load_formation(path: &Path, formation_id: &str) -> Result<TrainDescriptio
         })?;
 
     // Closure that prefixes every error with formation / file context.
-    let err = |msg: &str| format!("formation '{}' in '{}': {msg}", formation_id, path.display());
+    let err = |msg: &str| {
+        format!(
+            "formation '{}' in '{}': {msg}",
+            formation_id,
+            path.display()
+        )
+    };
 
     // --- Basic formation attributes ---
 

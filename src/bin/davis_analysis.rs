@@ -28,14 +28,17 @@
 
 use clap::Parser;
 use hs_trains::model::{DriverInput, Environment, Position, SimulatedState};
-use hs_trains::physics::{advance_train, AdvanceTarget};
-use hs_trains::timing::TimingTrace;
+use hs_trains::physics::{AdvanceTarget, advance_train};
 use hs_trains::rollingstock;
+use hs_trains::timing::TimingTrace;
 use polars::prelude::*;
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "davis-analysis", about = "Physics / timing / physics three-section analysis")]
+#[command(
+    name = "davis-analysis",
+    about = "Physics / timing / physics three-section analysis"
+)]
 struct Cli {
     /// RailML 3.3 file containing the formation
     railml_file: PathBuf,
@@ -85,30 +88,45 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
-    let train = rollingstock::load_formation(&cli.railml_file, &cli.formation_id)
-        .unwrap_or_else(|e| { eprintln!("Error loading rollingstock: {e}"); std::process::exit(1) });
+    let train =
+        rollingstock::load_formation(&cli.railml_file, &cli.formation_id).unwrap_or_else(|e| {
+            eprintln!("Error loading rollingstock: {e}");
+            std::process::exit(1)
+        });
 
-    let trace = TimingTrace::load(&cli.timing_file, &cli.timing_train_id)
-        .unwrap_or_else(|e| { eprintln!("Error loading timing data: {e}"); std::process::exit(1) });
+    let trace = TimingTrace::load(&cli.timing_file, &cli.timing_train_id).unwrap_or_else(|e| {
+        eprintln!("Error loading timing data: {e}");
+        std::process::exit(1)
+    });
 
-    let env    = Environment { gradient: cli.gradient, wind_speed: cli.wind_speed };
-    let driver = DriverInput  { power_ratio: cli.power_ratio, brake_ratio: 0.0 };
+    let env = Environment {
+        gradient: cli.gradient,
+        wind_speed: cli.wind_speed,
+    };
+    let driver = DriverInput {
+        power_ratio: cli.power_ratio,
+        brake_ratio: 0.0,
+    };
 
     let s1 = (cli.section1_s / cli.dt).round() as usize;
     let s2 = (cli.section2_s / cli.dt).round() as usize;
     let s3 = (cli.section3_s / cli.dt).round() as usize;
     let total = s1 + s2 + s3;
 
-    let mut times:    Vec<f64>         = Vec::with_capacity(total);
-    let mut sections: Vec<i32>         = Vec::with_capacity(total);
-    let mut pos_out:  Vec<f64>         = Vec::with_capacity(total);
+    let mut times: Vec<f64> = Vec::with_capacity(total);
+    let mut sections: Vec<i32> = Vec::with_capacity(total);
+    let mut pos_out: Vec<f64> = Vec::with_capacity(total);
     let mut spd_diff: Vec<Option<f64>> = Vec::with_capacity(total);
     let mut acc_diff: Vec<Option<f64>> = Vec::with_capacity(total);
-    let mut spd_integ: Vec<f64>        = Vec::with_capacity(total);
-    let mut acc_integ: Vec<f64>        = Vec::with_capacity(total);
+    let mut spd_integ: Vec<f64> = Vec::with_capacity(total);
+    let mut acc_integ: Vec<f64> = Vec::with_capacity(total);
 
     let mut state = SimulatedState {
-        position: Position { x: 0.0, y: 0.0, z: 0.0 },
+        position: Position {
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
         speed: 0.0,
         acceleration: 0.0,
     };
@@ -131,11 +149,11 @@ fn main() {
     // -----------------------------------------------------------------------
     // Section 2 — timing trace (differential) + physics in parallel (integral)
     // -----------------------------------------------------------------------
-    let mut prev_timing_pos:   Option<f64> = None;
+    let mut prev_timing_pos: Option<f64> = None;
     let mut prev_diff_speed_ms: Option<f64> = None;
 
     for step in 0..s2 {
-        let t       = (s1 + step) as f64 * cli.dt;
+        let t = (s1 + step) as f64 * cli.dt;
         let t_trace = t - cli.section1_s + cli.timing_offset_s;
 
         let timing_pos = trace.position_at(t_trace);
@@ -143,13 +161,13 @@ fn main() {
         // v_diff = Δpos / Δt
         let diff_speed_ms: Option<f64> = match (timing_pos, prev_timing_pos) {
             (Some(p), Some(pp)) => Some((p - pp) / cli.dt),
-            _                   => None,
+            _ => None,
         };
 
         // a_diff = Δv_diff / Δt
         let diff_accel: Option<f64> = match (diff_speed_ms, prev_diff_speed_ms) {
             (Some(v), Some(pv)) => Some((v - pv) / cli.dt),
-            _                   => None,
+            _ => None,
         };
 
         // Physics advances in parallel — not synced to timing here.
@@ -164,7 +182,7 @@ fn main() {
         spd_integ.push(state.speed * 3.6);
         acc_integ.push(state.acceleration);
 
-        prev_timing_pos    = timing_pos;
+        prev_timing_pos = timing_pos;
         prev_diff_speed_ms = diff_speed_ms;
     }
 
@@ -173,8 +191,12 @@ fn main() {
     // Assume a = 0 at the berth boundary; physics will compute the correct
     // acceleration from forces at the very next step.
     // -----------------------------------------------------------------------
-    if let Some(pos) = prev_timing_pos    { state.position.x = pos; }
-    if let Some(v)   = prev_diff_speed_ms { state.speed = v; }
+    if let Some(pos) = prev_timing_pos {
+        state.position.x = pos;
+    }
+    if let Some(v) = prev_diff_speed_ms {
+        state.speed = v;
+    }
     state.acceleration = 0.0;
 
     // -----------------------------------------------------------------------
@@ -199,25 +221,44 @@ fn main() {
     let mut df = DataFrame::new(
         n,
         vec![
-            Series::new("time_s".into(),                 &times).into(),
-            Series::new("section".into(),                &sections).into(),
-            Series::new("position_m".into(),             &pos_out).into(),
+            Series::new("time_s".into(), &times).into(),
+            Series::new("section".into(), &sections).into(),
+            Series::new("position_m".into(), &pos_out).into(),
             Series::new("speed_differential_kmh".into(), &spd_diff).into(),
             Series::new("accel_differential_mss".into(), &acc_diff).into(),
-            Series::new("speed_integral_kmh".into(),     &spd_integ).into(),
-            Series::new("accel_integral_mss".into(),     &acc_integ).into(),
+            Series::new("speed_integral_kmh".into(), &spd_integ).into(),
+            Series::new("accel_integral_mss".into(), &acc_integ).into(),
         ],
-    ).unwrap();
+    )
+    .unwrap();
 
-    let file = std::fs::File::create(&cli.output)
-        .unwrap_or_else(|e| { eprintln!("Cannot create '{}': {e}", cli.output.display()); std::process::exit(1) });
+    let file = std::fs::File::create(&cli.output).unwrap_or_else(|e| {
+        eprintln!("Cannot create '{}': {e}", cli.output.display());
+        std::process::exit(1)
+    });
     ParquetWriter::new(file)
         .with_compression(ParquetCompression::Lz4Raw)
         .finish(&mut df)
-        .unwrap_or_else(|e| { eprintln!("Parquet write error: {e}"); std::process::exit(1) });
+        .unwrap_or_else(|e| {
+            eprintln!("Parquet write error: {e}");
+            std::process::exit(1)
+        });
 
     println!("Written {n} rows to '{}'", cli.output.display());
-    println!("  §1 physics : {:>5} rows   (t = 0 … {:.0} s)", s1, cli.section1_s);
-    println!("  §2 timing  : {:>5} rows   (t = {:.0} … {:.0} s)", s2, cli.section1_s, cli.section1_s + cli.section2_s);
-    println!("  §3 physics : {:>5} rows   (t = {:.0} … {:.0} s)", s3, cli.section1_s + cli.section2_s, cli.section1_s + cli.section2_s + cli.section3_s);
+    println!(
+        "  §1 physics : {:>5} rows   (t = 0 … {:.0} s)",
+        s1, cli.section1_s
+    );
+    println!(
+        "  §2 timing  : {:>5} rows   (t = {:.0} … {:.0} s)",
+        s2,
+        cli.section1_s,
+        cli.section1_s + cli.section2_s
+    );
+    println!(
+        "  §3 physics : {:>5} rows   (t = {:.0} … {:.0} s)",
+        s3,
+        cli.section1_s + cli.section2_s,
+        cli.section1_s + cli.section2_s + cli.section3_s
+    );
 }
