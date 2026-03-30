@@ -15,13 +15,32 @@ simulation:
         power_ratio: 0.8                    # 0–1 throttle
         brake_ratio: 0.0                    # 0–1 braking
 
-    # Timing trains — positions interpolated from real berth timing data.
-    # Timestamps are normalised to t=0 at the first record.
-    # speed_kmh and acceleration_mss are null in the output for these trains.
+    # Timing-traced trains: position interpolated from berth timing data when
+    # available; physics (driver + environment below) used as fallback for any
+    # gaps or out-of-range periods.  speed_kmh and acceleration_mss are null
+    # in the output whenever the timing trace is used.
     - id: "1A23"
-      kind: timing
-      parquet_file: berth_timing.parquet
+      kind: railml
+      railml_file: output.xml
+      formation_id: formation_class66_mk3
+      timing_file: berth_timing.parquet
+      # timing_train_id defaults to id ("1A23") — override only if they differ
+      environment:
+        gradient: 0.0
+        wind_speed: 0.0
+      driver:
+        power_ratio: 0.8
+        brake_ratio: 0.0
 
     - id: "2B45"
-      kind: timing
-      parquet_file: berth_timing.parquet
+      kind: railml
+      railml_file: output.xml
+      formation_id: formation_class66_mk3
+      timing_file: berth_timing.parquet
+      timing_train_id: "1A23"     # this service uses the same timing data as 1A23
+      environment:
+        gradient: 0.0
+        wind_speed: 0.0
+      driver:
+        power_ratio: 0.8
+        brake_ratio: 0.0

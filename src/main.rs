@@ -42,9 +42,12 @@ struct Config {
 
 /// Per-train configuration as written in the YAML file.
 ///
-/// `kind: railml` trains reference an external RailML file; the physics parameters
-/// are loaded from the nominated formation at startup.  `kind: timing` trains
-/// replay berth-timing Parquet data unchanged.
+/// Every train is `kind: railml`: rolling-stock parameters come from a RailML 3.3
+/// formation element.  If `timing_file` is supplied the train's position is taken
+/// from the berth-timing trace whenever the trace has data at the current time;
+/// physics simulation is used as a fallback for any gaps or out-of-range periods.
+/// `driver` and `environment` are therefore always required — they govern the
+/// physics fallback even for timing-traced trains.
 #[derive(serde::Deserialize)]
 #[serde(tag = "kind")]
 enum TrainConfigYaml {
@@ -53,44 +56,31 @@ enum TrainConfigYaml {
         id: String,
         railml_file: String,
         formation_id: String,
+        /// Path to a Parquet berth-timing file. Optional; if absent, pure physics.
+        #[serde(default)]
+        timing_file: Option<String>,
+        /// Train ID to filter from the timing Parquet file.
+        /// Defaults to the train's `id` field when omitted.
+        #[serde(default)]
+        timing_train_id: Option<String>,
         environment: Environment,
         driver: DriverInput,
-    },
-    #[serde(rename = "timing")]
-    Timing {
-        id: String,
-        parquet_file: String,
     },
 }
 
 /// Resolved per-train configuration used at runtime.
-///
-/// `Physics` is identical to what was previously `TrainConfig::Physics`; the
-/// RailML file has already been read and the `TrainDescription` populated.
-enum TrainConfig {
-    Physics {
-        id: String,
-        train: TrainDescription,
-        environment: Environment,
-        driver: DriverInput,
-    },
-    Timing {
-        id: String,
-        parquet_file: String,
-    },
-}
-
-impl TrainConfig {
-    fn id(&self) -> &str {
-        match self {
-            TrainConfig::Physics { id, .. } | TrainConfig::Timing { id, .. } => id,
-        }
-    }
+struct TrainConfig {
+    id: String,
+    train: TrainDescription,
+    environment: Environment,
+    driver: DriverInput,
+    /// Pre-loaded timing trace, if a `timing_file` was specified.
+    timing: Option<TimingTrace>,
 }
 
 fn resolve_train(yaml: TrainConfigYaml) -> TrainConfig {
     match yaml {
-        TrainConfigYaml::RailML { id, railml_file, formation_id, environment, driver } => {
+        TrainConfigYaml::RailML { id, railml_file, formation_id, timing_file, timing_train_id, environment, driver } => {
             let train = rollingstock::load_formation(
                 std::path::Path::new(&railml_file),
                 &formation_id,
@@ -99,9 +89,16 @@ fn resolve_train(yaml: TrainConfigYaml) -> TrainConfig {
                 eprintln!("Error loading rollingstock for train '{id}': {e}");
                 std::process::exit(1)
             });
-            TrainConfig::Physics { id, train, environment, driver }
+            let timing = timing_file.map(|tf| {
+                let tid = timing_train_id.as_deref().unwrap_or(&id);
+                TimingTrace::load(std::path::Path::new(&tf), tid)
+                    .unwrap_or_else(|e| {
+                        eprintln!("Error loading timing data for train '{id}': {e}");
+                        std::process::exit(1)
+                    })
+            });
+            TrainConfig { id, train, environment, driver, timing }
         }
-        TrainConfigYaml::Timing { id, parquet_file } => TrainConfig::Timing { id, parquet_file },
     }
 }
 
@@ -147,16 +144,11 @@ fn main() {
 // Simulation
 // ---------------------------------------------------------------------------
 
-/// Per-train runtime state, parallel to `TrainConfig`.
-enum SimState {
-    Physics(SimulatedState),
-    Timing(TimingTrace),
-}
-
 /// Run the simulation, streaming results to `output` as Parquet row groups.
 ///
-/// Time is the outer loop: every train is advanced for each time step before
-/// moving to the next step. Physics and timing trains may be freely mixed.
+/// Every train has a physics state that is advanced each step.  Trains with a
+/// timing trace use the trace position when data is available at time `t` and
+/// fall back to physics when outside the trace's range.
 ///
 /// Per-step physics is parallelised with Rayon across all trains.
 ///
@@ -166,10 +158,10 @@ enum SimState {
 /// Output columns:
 /// - `train_id`         — string identifier
 /// - `time_s`           — elapsed simulation time in seconds
-/// - `position_m`       — position along route in metres (null if timing train
-///                        is outside its data range)
-/// - `speed_kmh`        — speed in km/h (null for timing trains)
-/// - `acceleration_mss` — acceleration in m/s² (null for timing trains)
+/// - `position_m`       — position in metres (null only if timing trace returns
+///                        null AND physics is also unavailable — should not occur)
+/// - `speed_kmh`        — speed in km/h (null when timing position is used)
+/// - `acceleration_mss` — acceleration in m/s² (null when timing position is used)
 
 fn build_batch<'a>(
     train_id_data:   &[&'a str],
@@ -226,7 +218,7 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
     let buf_cap = flush_rows.min(steps * trains.len());
 
     // Pre-cache IDs as &str slices — avoids per-step String allocations in the hot loop.
-    let train_id_cache: Vec<&str> = trains.iter().map(|c| c.id()).collect();
+    let train_id_cache: Vec<&str> = trains.iter().map(|c| c.id.as_str()).collect();
 
     let mut train_id_data    = Vec::<&str>::with_capacity(buf_cap);
     let mut event_kind_data  = Vec::<&'static str>::with_capacity(buf_cap);
@@ -253,18 +245,12 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
         .batched(&schema)
         .unwrap_or_else(|e| { eprintln!("Cannot initialise Parquet writer: {e}"); std::process::exit(1) });
 
-    // Initialise per-train state.
-    let mut states: Vec<SimState> = trains.iter().map(|cfg| match cfg {
-        TrainConfig::Physics { .. } => SimState::Physics(SimulatedState {
-            position: Position { x: 0.0, y: 0.0, z: 0.0 },
-            speed: 0.0,
-            acceleration: 0.0,
-        }),
-        TrainConfig::Timing { id, parquet_file } => {
-            let trace = TimingTrace::load(std::path::Path::new(parquet_file), id)
-                .unwrap_or_else(|e| { eprintln!("Error loading timing data for '{id}': {e}"); std::process::exit(1) });
-            SimState::Timing(trace)
-        }
+    // Every train starts from rest at position 0.  The physics state is always
+    // maintained; trains with a timing trace overlay it on top of physics.
+    let mut states: Vec<SimulatedState> = trains.iter().map(|_| SimulatedState {
+        position: Position { x: 0.0, y: 0.0, z: 0.0 },
+        speed: 0.0,
+        acceleration: 0.0,
     }).collect();
 
     // -----------------------------------------------------------------------
@@ -343,11 +329,12 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
                 // window AND there is meaningful work left: either a train is still
                 // moving, or pending events could change the state (e.g. a future
                 // SpeedChange waking a stopped train).
-                let any_moving = states.iter().any(|s| match s {
-                    SimState::Physics(p) => p.speed > 0.0,
-                    SimState::Timing(_)  => true, // timing traces may still have data
+                // Keep running while any train is moving or has a timing trace
+                // (which may still yield data at the next tick).
+                let any_active = trains.iter().zip(states.iter()).any(|(cfg, s)| {
+                    cfg.timing.is_some() || s.speed > 0.0
                 });
-                if t + dt <= duration && (any_moving || !queue.is_empty()) {
+                if t + dt <= duration && (any_active || !queue.is_empty()) {
                     queue.push(t + dt, None, scheduler::EventKind::PhysicsTick);
                 }
 
@@ -359,17 +346,13 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
                         .zip(last_times.par_iter())
                         .map(|((cfg, state), &lt)| {
                             let dt_i = t - lt;
-                            match (cfg, state) {
-                                (TrainConfig::Physics { train, environment, driver, .. }, SimState::Physics(s)) => {
-                                    if dt_i > 0.0 {
-                                        *s = advance_train(s, train, driver, environment, AdvanceTarget::Time(dt_i));
-                                    }
-                                    (Some(s.position.x), Some(s.speed * 3.6), Some(s.acceleration))
-                                }
-                                (TrainConfig::Timing { .. }, SimState::Timing(trace)) => {
-                                    (trace.position_at(t), None, None)
-                                }
-                                _ => unreachable!(),
+                            if dt_i > 0.0 {
+                                *state = advance_train(state, &cfg.train, &cfg.driver, &cfg.environment, AdvanceTarget::Time(dt_i));
+                            }
+                            // Timing trace takes priority when it has data; physics is the fallback.
+                            match cfg.timing.as_ref().and_then(|tr| tr.position_at(t)) {
+                                Some(pos) => (Some(pos), None, None),
+                                None      => (Some(state.position.x), Some(state.speed * 3.6), Some(state.acceleration)),
                             }
                         })
                         .collect();
@@ -401,15 +384,12 @@ fn run_simulation(trains: &[TrainConfig], dt: f64, duration: f64, output: &std::
                     if i < trains.len() {
                         let dt_i = t - last_times[i];
                         if dt_i > 0.0 {
-                            let (pos, spd, acc) = match (&trains[i], &mut states[i]) {
-                                (TrainConfig::Physics { train, environment, driver, .. }, SimState::Physics(s)) => {
-                                    *s = advance_train(s, train, driver, environment, AdvanceTarget::Time(dt_i));
-                                    (Some(s.position.x), Some(s.speed * 3.6), Some(s.acceleration))
-                                }
-                                (TrainConfig::Timing { .. }, SimState::Timing(trace)) => {
-                                    (trace.position_at(t), None, None)
-                                }
-                                _ => unreachable!(),
+                            let cfg = &trains[i];
+                            let s   = &mut states[i];
+                            *s = advance_train(s, &cfg.train, &cfg.driver, &cfg.environment, AdvanceTarget::Time(dt_i));
+                            let (pos, spd, acc) = match cfg.timing.as_ref().and_then(|tr| tr.position_at(t)) {
+                                Some(pos) => (Some(pos), None, None),
+                                None      => (Some(s.position.x), Some(s.speed * 3.6), Some(s.acceleration)),
                             };
                             last_times[i] = t;
                             train_id_data.push(train_id_cache[i]);
