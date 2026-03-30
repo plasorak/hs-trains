@@ -127,24 +127,22 @@ pub fn advance_train(state: &SimulatedState, params: &TrainDescription, driver: 
 }
 
 pub fn step_trains(state: &SimulatedState, params: &TrainDescription, driver: &DriverInput, env: &Environment, dt: f64) -> SimulatedState {
-    let speed = state.speed;
-
-    let net_force = net_force_at_speed(speed, params, driver, env);
+    let net_force = net_force_at_speed(state.speed, params, driver, env);
 
     // --- Kinematics (Euler integration) ---
     let acceleration = net_force / params.mass;
-    let mut new_speed = (speed + acceleration * dt).max(0.0); // can't go negative
+    let mut new_speed = (state.speed + acceleration * dt).max(0.0); // can't go negative
     let max_speed_m_s = params.max_speed / 3.6;
-    if new_speed>max_speed_m_s {
+    if new_speed > max_speed_m_s {
         new_speed = max_speed_m_s;
     }
 
-    let new_position = state.position.x + speed * dt; // use old speed for position update
+    let new_position = state.position.x + state.speed * dt; // use old speed for position update
 
     SimulatedState {
-        position: Position{x:new_position,y:0., z:0.},
+        position: Position { x: new_position, y: 0.0, z: 0.0 },
         speed: new_speed,
-        acceleration: acceleration,
+        acceleration,
     }
 }
 
