@@ -6,3 +6,4 @@ argument-hint: [issue number]
 1. If an issue number is provided (`$ARGUMENTS`), fix that specific issue. Otherwise, list open issues and pick one.
 2. Run `/start-task`
 3. Work on it
+4. Make sure you reference the issue in the PR description
