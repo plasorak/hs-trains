@@ -2,7 +2,7 @@
 
 This document is a deep dive into the RailML 3.3 rollingstock sub-schema as used by hs-trains. It covers element semantics, attribute units, curve conventions, and the mapping from RailML fields to the internal physics parameters.
 
-For the Python tooling that generates and validates RailML files, see [python/rollingstock.md](../python/rollingstock.md).
+For the Python tooling that generates and validates RailML files, see [rollingstock.md](rollingstock.md).
 
 ---
 
