@@ -9,7 +9,7 @@
 | Sub-schema | Description | Docs |
 |---|---|---|
 | `rollingstock` | Vehicles, formations, traction, braking, driving resistance | [rollingstock.md](rollingstock.md) |
-| `infrastructure` | Tracks, switches, signals, balises, platforms, electrification | [railml-infrastructure.md](railml-infrastructure.md) |
+| `infrastructure` | Tracks, switches, signals, balises, platforms, electrification | [infrastructure.md](infrastructure.md) |
 | `timetable` | Train runs, stopping times, connections | — |
 | `interlocking` | Signal logic, routes, overlaps | — |
 | `visualizations` | Map layers and display hints | — |
