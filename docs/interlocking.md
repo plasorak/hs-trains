@@ -6,7 +6,7 @@ This document covers the RailML 3.3 `interlocking` sub-schema — routes, signal
 
 ## UK / British Rail Applicability
 
-The short answer: **RailML covers British signalling well**, including the concepts that were missing from the `infrastructure` schema. The key mapping between UK terminology and RailML is:
+The short answer: **RailML covers British signalling well**. The key mapping between UK terminology and RailML is:
 
 | UK term | RailML equivalent | Where |
 |---|---|---|
