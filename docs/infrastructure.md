@@ -337,7 +337,14 @@ tElementWithID           — carries id: tID
             └── SpeedSection
 ```
 
-`FunctionalInfrastructureEntity` adds three things present on every object:
+`EntityIS` adds geo-referencing to every object:
+
+| Child | Description |
+|---|---|
+| `gmlLocation[]` | GML geometry (point, line, …) in WGS-84 or a projected CRS. `gml:pos` holds space-separated coordinates: longitude latitude altitude, or easting northing height. |
+| `networkLocation[]` | Abstract position within the topology graph (see [Geo-Referencing](#geo-referencing)). |
+
+`FunctionalInfrastructureEntity` adds three further fields present on every object:
 
 | Child/attribute | Description |
 |---|---|
