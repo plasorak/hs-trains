@@ -11,7 +11,7 @@
 | `rollingstock` | Vehicles, formations, traction, braking, driving resistance | [rollingstock.md](rollingstock.md) |
 | `infrastructure` | Tracks, switches, signals, balises, platforms, electrification | [infrastructure.md](infrastructure.md) |
 | `timetable` | Train runs, stopping times, connections | — |
-| `interlocking` | Signal logic, routes, overlaps | — |
+| `interlocking` | Signal logic, routes, overlaps, track vacancy detection (berths) | [interlocking.md](interlocking.md) |
 | `visualizations` | Map layers and display hints | — |
 
 hs-trains currently parses only the **rollingstock** sub-schema. Infrastructure support is planned (stub: `src/assets.rs`).
