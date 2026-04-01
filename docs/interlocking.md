@@ -461,16 +461,3 @@ A signal box is the fail-safe interlocking computer responsible for a set of ass
 | Release trigger | `byOccupation`, `byOperator`, `byTrainStandstill`, `afterVacation` |
 
 ---
-
-## Relationship to hs-trains
-
-The interlocking schema is not yet parsed. When added, the key elements for simulation would be:
-
-| Interlocking element | Simulation use |
-|---|---|
-| `TvdSection` | Train position tracking; berth occupation for TD display |
-| `Route` | Route availability and conflict detection |
-| `Overlap` | Safety margin beyond stop signals |
-| `SignalIL` | Aspect logic gating train movement authorities |
-| `RouteReleaseGroupRear` | Progressive section release behind simulated trains |
-| `TrainNumberField` | Headcode propagation through the network |
