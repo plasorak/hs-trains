@@ -260,7 +260,12 @@ A TVD section is the interlocking's view of a track section — it reports occup
 
 ## `trainNumberField` — Headcode Display (TD berth label)
 
-`TrainNumberField` elements represent the physical or virtual display on the signaller's panel that shows the train's headcode as it steps through berths. Each `TvdSection` links to its label via `hasTrainNumberField`.
+`TrainNumberField` represents the physical or virtual display on the signaller's panel that shows the train's headcode as it steps through berths. Each `TvdSection` links to its label via `hasTrainNumberField`.
+
+| Attribute | Description |
+|---|---|
+| `id` | Unique identifier |
+| `designator[]` | External identifiers for this display position |
 
 ---
 
@@ -330,6 +335,31 @@ A route is the interlocking's core safety unit: entry signal → exit signal, wi
 | `hasReleaseGroup` | Partial route release groups (rear release as train progresses) |
 | `additionalRelation` | Flank protection and other side conditions |
 
+### `routeEntry` / `routeExit`
+
+| Attribute | Description |
+|---|---|
+| `refersTo` | IDREF to a `SignalIL` (entry) or `SignalIL` / buffer stop (exit) |
+
+### `switchAndPosition`
+
+Used in `facingSwitchInPosition`, `trailingSwitchInPosition`, and overlap `requiresSwitchInPosition`.
+
+| Attribute | Description |
+|---|---|
+| `refersTo` | IDREF to a `SwitchIL` |
+| `inPosition` | Required position: `left`, `right`, or `both` |
+
+### `routeActivationSection`
+
+Defines an approach detection TVD section that triggers route locking when occupied.
+
+| Attribute | Description |
+|---|---|
+| `refersTo` | IDREF to a `TvdSection` |
+| `delayForLock` | Duration between section occupation and route locking |
+| `automaticReleaseDelay` | Duration after which a locked-but-unset route is automatically released |
+
 ### Route types
 
 | Type | Description |
@@ -362,6 +392,14 @@ The overlap is the section of track beyond a stop signal that must remain clear 
 | `requiresSwitchInPosition` | Switches that must be locked in the overlap |
 | `overlapRelease` | Release conditions: timer, speed, section vacation |
 | `additionalRelation` | Flank protection dependencies |
+
+### `overlapRelease`
+
+| Attribute/child | Description |
+|---|---|
+| `releaseTriggerSection` | IDREF to the `TvdSection` whose occupation starts the release timer |
+| `overlapReleaseTimer[]` | One or more timers, each with a duration and optional conditions |
+| `releaseSpeed` | Speed below which the timer may start |
 
 ---
 
@@ -410,6 +448,38 @@ The interlocking's logical view of points and trap switches — distinct from th
 |---|---|
 | `preferredPosition` | `derailingPosition`, `passablePosition`, `indifferent` |
 | `type` | `singleDerailer`, `doubleDerailer` |
+
+---
+
+## `keyLockIL` — Key Lock
+
+A field device used to request local (manual) control of one or more interlocking assets, releasing them from computer control.
+
+| Attribute | Type | Description |
+|---|---|---|
+| `function` | `tKeyLockFunctionListExt` | Which interlocking element is being locally controlled |
+| `hasAutomaticKeyRelease` | boolean | Key is released automatically when the associated TVD section becomes occupied |
+| `hasAutomaticKeyLock` | boolean | Key relocks automatically when returned to the device |
+| `keyRequestTime` | duration | Time between operator request and key availability |
+| `keyAuthoriseTime` | duration | Time the key remains valid after authorisation |
+
+| Child | Description |
+|---|---|
+| `acceptsKey` | The specific key element that fits this lock |
+| `hasTvdSection` | Associated TVD section (e.g. the siding being released) |
+| `hasSlaveLock` | Dependent key locks that are also released |
+
+---
+
+## `controller` — Operator Workstation
+
+A controller is an operator workstation or ATC system that can request routes and receive status from one or more interlockings.
+
+| Child | Description |
+|---|---|
+| `controlledInterlocking[]` | Interlockings this controller has authority over |
+| `controlledSystemAsset[]` | Individual assets directly controlled |
+| `routeSequences` | Pre-defined sequences of routes for one-button operation |
 
 ---
 

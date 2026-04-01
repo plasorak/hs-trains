@@ -358,6 +358,17 @@ tElementWithID           — carries id: tID
 
 The topology layer models the railway as an abstract graph independent of geometry.
 
+### `topology`
+
+| Child | Description |
+|---|---|
+| `netElements` | All net elements (directed edges) in the network |
+| `netRelations` | Connectivity between net element ends |
+| `networks` | Named groupings of net elements |
+| `netTravelPaths` | Multi-element paths inside macro/meso nodes |
+| `netConnectors` | Infrastructure border connectors |
+| `netConnectorRelations` | Relations between connectors |
+
 ### `netElement`
 
 A directed edge in the network graph — typically maps to one track section.
@@ -428,7 +439,11 @@ A standard Y-switch has `leftBranch` + `rightBranch`. A switch crossing (diamond
 
 #### `crossing`
 
-A diamond crossing — "where two railway tracks intersect without the ability to change track". Up to two `straightBranch` children define the two drivable paths.
+A diamond crossing — "where two railway tracks intersect without the ability to change track".
+
+| Child | Description |
+|---|---|
+| `straightBranch` (0..2) | The two drivable paths through the crossing, each described by a `SwitchCrossingBranch` |
 
 #### `bufferStop`
 
@@ -509,6 +524,23 @@ A balise group is one or more balises that together form a complete track-to-tra
 | `functionalType[]` | ETCS function: e.g. `announcementLevelTransition`, `handover`, `infill`, `signalLinked`, `border`, … (20+ values) |
 | `isEurobaliseGroup` | Eurobalise identity: `countryID` (NID_C) and `groupID` (NID_BG) |
 | `connectedWithInfrastructureElement[]` | Logical link to associated signals, level crossings, RBC borders, switches, buffer stops |
+
+#### `baliseGroupEurobalise`
+
+ETCS-specific identity block on a balise group.
+
+| Attribute | Description |
+|---|---|
+| `countryID` | ETCS variable NID_C — country/infrastructure manager identifier |
+| `groupID` | ETCS variable NID_BG — balise group number within the country |
+
+#### `xCrossing` (abstract)
+
+Abstract base shared by `levelCrossingIS` and `overCrossing`.
+
+| Child | Description |
+|---|---|
+| `crossesElement[]` | Elements that cross over or under the railway at this point (road, river, another railway, …) |
 
 ---
 

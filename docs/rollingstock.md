@@ -189,6 +189,64 @@ Represents a single vehicle class or individual unit.
 | `maximumAxleLoad` | t | Maximum static load per axle |
 | `towingSpeed` | km/h | Maximum speed when being towed |
 
+### `vehiclePart`
+
+Physical section of the vehicle body.
+
+| Attribute | Description |
+|---|---|
+| `id` | Unique identifier |
+| `partOrder` | Position within the vehicle, starting at 1 |
+| `category` | `locomotive`, `motorCoach`, `passengerCoach`, `freightWagon`, `cabCoach`, `booster` |
+| `airTightness` | Whether the section is pressure-sealed |
+| `emergencyBrakeOverride` | Whether passengers can activate an emergency brake override |
+| `maximumCantDeficiency` | Maximum cant deficiency tolerated by this part |
+
+### `engine`
+
+Container for one or more `powerMode` children. No attributes of its own.
+
+| Child | Description |
+|---|---|
+| `powerMode[]` | One entry per traction mode (diesel, electric, battery) |
+
+### `powerMode`
+
+| Attribute | Description |
+|---|---|
+| `mode` | `diesel`, `electric`, or `battery` |
+| `isPrimaryMode` | `"true"` for the main propulsion source; a vehicle may carry multiple modes |
+
+| Child | Description |
+|---|---|
+| `tractionData` | Traction characteristics for this mode |
+
+### `tractionData`
+
+| Child | Description |
+|---|---|
+| `info` | Scalar summary: `maxTractiveEffort` (N), `tractivePower` (W) |
+| `details` | Speed-dependent tractive effort curve |
+
+### `tractionInfo`
+
+| Attribute | Unit | Description |
+|---|---|---|
+| `maxTractiveEffort` | N | Maximum tractive effort at standstill |
+| `tractivePower` | W | Maximum continuous traction power |
+
+### `tractionDetails`
+
+Container for the speed-dependent tractive effort curve.
+
+| Child | Description |
+|---|---|
+| `tractiveEffort` | Wraps a `valueTable` of speed (km/h) vs force (N) |
+
+### `tractiveEffortCurve`
+
+Wraps a single `valueTable` with `xValueName="speed"`, `xValueUnit="km/h"`, `yValueName="tractiveEffort"`, `yValueUnit="N"`. See [railml.md](railml.md) for the `valueTable` format.
+
 ### `engine` > `powerMode` > `tractionData`
 
 ```xml
@@ -220,6 +278,10 @@ Represents a single vehicle class or individual unit.
 `mode` is one of `diesel`, `electric`, `battery`. `isPrimaryMode="true"` marks the main propulsion source; a vehicle may have multiple power modes (e.g. dual-mode).
 
 ### `brakes`
+
+### `decelerationCurve`
+
+Wraps a single `valueTable` with `xValueName="speed"`, `xValueUnit="km/h"`, `yValueName="deceleration"`, `yValueUnit="m/s/s"`.
 
 | Child | Description |
 |---|---|
@@ -297,12 +359,37 @@ The operational consist — an ordered list of vehicles. This is the primary uni
 
 ### `trainEngine`
 
-Aggregated traction for the formation. Contains a `tractionMode` child with the same structure as vehicle `powerMode`.
+Aggregated traction for the formation. Contains a `tractionMode` child.
+
+### `trainTractionMode`
+
+Same attributes as vehicle `powerMode`.
+
+| Attribute | Description |
+|---|---|
+| `mode` | `diesel`, `electric`, or `battery` |
+| `isPrimaryMode` | `"true"` for the primary traction mode |
+
+| Child | Description |
+|---|---|
+| `tractionData` | Scalar traction summary (`info`) for the formation |
 
 | Attribute | Unit | Description |
 |---|---|---|
 | `maxAcceleration` | m/s² | Maximum achievable acceleration |
 | `meanAcceleration` | m/s² | Mean acceleration over a departure manoeuvre |
+
+### `formationBrakeSystem` (`trainBrakes`)
+
+Formation-level brake system — same attributes as vehicle `vehicleBrakes`.
+
+| Attribute | Unit | Description |
+|---|---|---|
+| `brakeType` | — | Technology: vacuum, compressed air, etc. |
+| `meanDeceleration` | m/s² | Mean deceleration over a complete braking operation. **Used by the physics engine.** |
+| `maxDeceleration` | m/s² | Maximum instantaneous deceleration |
+| `regularBrakePercentage` | % | Brake percentage for normal operations |
+| `emergencyBrakePercentage` | % | Brake percentage for emergency braking |
 
 ### `trainBrakes`
 
