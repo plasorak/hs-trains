@@ -1,4 +1,4 @@
-use crate::model::{DriverInput, Environment, Position, SimulatedState, TrainDescription};
+use crate::core::model::{DriverInput, Environment, Position, SimulatedState, TrainDescription};
 
 const G: f64 = 9.81; // m/s²
 
@@ -208,7 +208,7 @@ pub fn step_trains(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::{DriverInput, Environment, Position, SimulatedState, TrainDescription};
+    use crate::core::model::{DriverInput, Environment, Position, SimulatedState, TrainDescription};
 
     fn test_train() -> TrainDescription {
         TrainDescription {

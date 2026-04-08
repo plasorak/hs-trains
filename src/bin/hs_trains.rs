@@ -1,8 +1,8 @@
 use clap::Parser;
-use hs_trains::model::{DriverInput, Environment, Position, SimulatedState, TrainDescription};
-use hs_trains::physics::{AdvanceTarget, advance_train};
-use hs_trains::timing::TimingTrace;
-use hs_trains::{rollingstock, scheduler};
+use hs_trains::core::model::{DriverInput, Environment, Position, SimulatedState, TrainDescription};
+use hs_trains::core::physics::{AdvanceTarget, advance_train};
+use hs_trains::core::timing::TimingTrace;
+use hs_trains::{core::scheduler, io::railml_rollingstock};
 use indicatif::{ProgressBar, ProgressStyle};
 use polars::prelude::*;
 use rayon::prelude::*;
@@ -85,7 +85,7 @@ fn resolve_train(yaml: TrainConfigYaml) -> TrainConfig {
             driver,
         } => {
             let train =
-                rollingstock::load_formation(std::path::Path::new(&railml_file), &formation_id)
+                railml_rollingstock::load_formation(std::path::Path::new(&railml_file), &formation_id)
                     .unwrap_or_else(|e| {
                         eprintln!("Error loading rollingstock for train '{id}': {e}");
                         std::process::exit(1)
