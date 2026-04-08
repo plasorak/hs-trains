@@ -152,11 +152,15 @@ fn main() {
     let mut prev_timing_pos: Option<f64> = None;
     let mut prev_diff_speed_ms: Option<f64> = None;
 
+    // Shift timing-trace positions so §2 starts where §1 left off, giving all
+    // three sections a common spatial reference for position-based plots.
+    let timing_position_offset = state.position.x;
+
     for step in 0..s2 {
         let t = (s1 + step) as f64 * cli.dt;
         let t_trace = t - cli.section1_s + cli.timing_offset_s;
 
-        let timing_pos = trace.position_at(t_trace);
+        let timing_pos = trace.position_at(t_trace).map(|p| p + timing_position_offset);
 
         // v_diff = Δpos / Δt
         let diff_speed_ms: Option<f64> = match (timing_pos, prev_timing_pos) {
