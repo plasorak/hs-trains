@@ -10,15 +10,15 @@ pub enum AdvanceTarget {
 
 fn net_force_at_speed(
     v: f64,
-    params: &TrainDescription,
+    train: &TrainDescription,
     driver: &DriverInput,
     env: &Environment,
 ) -> f64 {
     let braking = driver.brake_ratio > 0.0;
 
-    let low_speed_force = params.traction_force_at_standstill * driver.power_ratio;
+    let low_speed_force = train.traction_force_at_standstill * driver.power_ratio;
     let high_speed_force = if v > 0.1 {
-        params.power * driver.power_ratio / v
+        train.power * driver.power_ratio / v
     } else {
         low_speed_force
     };
@@ -29,14 +29,14 @@ fn net_force_at_speed(
         0.0
     };
     let braking_force = if braking {
-        params.braking_force * driver.brake_ratio
+        train.braking_force * driver.brake_ratio
     } else {
         0.0
     };
 
-    let gravity_force = params.mass * G * env.gradient;
-    let drag_force = params.drag_coeff * (v + env.wind_speed).powi(2);
-    let rolling_resistance = params.davis_a + params.davis_b * v;
+    let gravity_force = train.mass * G * env.gradient;
+    let drag_force = train.drag_coeff * (v + env.wind_speed).powi(2);
+    let rolling_resistance = train.davis_a + train.davis_b * v;
 
     traction_force - gravity_force - drag_force - rolling_resistance - braking_force
 }
@@ -44,11 +44,11 @@ fn net_force_at_speed(
 #[allow(dead_code)]
 fn compute_acceleration(
     state: &SimulatedState,
-    params: &TrainDescription,
+    train: &TrainDescription,
     driver: &DriverInput,
     env: &Environment,
 ) -> f64 {
-    net_force_at_speed(state.speed, params, driver, env) / params.mass
+    net_force_at_speed(state.speed, train, driver, env) / train.mass
 }
 
 /// Find the equilibrium speed (where net force = 0) in [v_lo, v_hi] via bisection.
@@ -57,12 +57,12 @@ fn compute_acceleration(
 fn terminal_speed(
     v_lo: f64,
     v_hi: f64,
-    params: &TrainDescription,
+    train: &TrainDescription,
     driver: &DriverInput,
     env: &Environment,
 ) -> Option<f64> {
-    let f_lo = net_force_at_speed(v_lo, params, driver, env);
-    let f_hi = net_force_at_speed(v_hi, params, driver, env);
+    let f_lo = net_force_at_speed(v_lo, train, driver, env);
+    let f_hi = net_force_at_speed(v_hi, train, driver, env);
     if f_lo * f_hi >= 0.0 {
         return None;
     }
@@ -74,7 +74,7 @@ fn terminal_speed(
     };
     for _ in 0..52 {
         let mid = 0.5 * (lo + hi);
-        if net_force_at_speed(mid, params, driver, env) > 0.0 {
+        if net_force_at_speed(mid, train, driver, env) > 0.0 {
             lo = mid;
         } else {
             hi = mid;
@@ -93,21 +93,21 @@ fn terminal_speed(
 #[allow(dead_code)]
 pub fn advance_train(
     state: &SimulatedState,
-    params: &TrainDescription,
+    train: &TrainDescription,
     driver: &DriverInput,
     env: &Environment,
     target: AdvanceTarget,
 ) -> SimulatedState {
-    let a = compute_acceleration(state, params, driver, env);
+    let a = compute_acceleration(state, train, driver, env);
     let v0 = state.speed;
     let x0 = state.position.x;
-    let vmax = params.max_speed / 3.6;
+    let vmax = train.max_speed / 3.6;
 
     let (new_speed, new_position) = match target {
         AdvanceTarget::Time(dt) => {
             if a > 0.0 {
                 // Cap at terminal velocity (tighter than vmax; prevents overshoot past equilibrium).
-                let v_eq = terminal_speed(v0, vmax, params, driver, env).unwrap_or(vmax);
+                let v_eq = terminal_speed(v0, vmax, train, driver, env).unwrap_or(vmax);
                 let t_to_eq = (v_eq - v0) / a;
                 if dt <= t_to_eq {
                     (v0 + a * dt, x0 + v0 * dt + 0.5 * a * dt * dt)
@@ -120,7 +120,7 @@ pub fn advance_train(
                 // When coasting above equilibrium (no brakes), cap deceleration at v_eq
                 // to prevent undershooting.  When braking there is no equilibrium above 0.
                 let v_floor = if driver.brake_ratio == 0.0 {
-                    terminal_speed(0.0, v0, params, driver, env).unwrap_or(0.0)
+                    terminal_speed(0.0, v0, train, driver, env).unwrap_or(0.0)
                 } else {
                     0.0
                 };
@@ -156,7 +156,7 @@ pub fn advance_train(
                 };
             }
             let v_cap = if a > 0.0 {
-                terminal_speed(v0, vmax, params, driver, env).unwrap_or(vmax)
+                terminal_speed(v0, vmax, train, driver, env).unwrap_or(vmax)
             } else {
                 vmax
             };
@@ -177,17 +177,17 @@ pub fn advance_train(
 
 pub fn step_trains(
     state: &SimulatedState,
-    params: &TrainDescription,
+    train: &TrainDescription,
     driver: &DriverInput,
     env: &Environment,
     dt: f64,
 ) -> SimulatedState {
-    let net_force = net_force_at_speed(state.speed, params, driver, env);
+    let net_force = net_force_at_speed(state.speed, train, driver, env);
 
     // --- Kinematics (Euler integration) ---
-    let acceleration = net_force / params.mass;
+    let acceleration = net_force / train.mass;
     let mut new_speed = (state.speed + acceleration * dt).max(0.0); // can't go negative
-    let max_speed_m_s = params.max_speed / 3.6;
+    let max_speed_m_s = train.max_speed / 3.6;
     if new_speed > max_speed_m_s {
         new_speed = max_speed_m_s;
     }
@@ -210,7 +210,7 @@ mod tests {
     use super::*;
     use crate::model::{DriverInput, Environment, Position, SimulatedState, TrainDescription};
 
-    fn test_params() -> TrainDescription {
+    fn test_train() -> TrainDescription {
         TrainDescription {
             power: 2_460_000.0,
             traction_force_at_standstill: 409_000.0,
@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_accelerating_from_standstill() {
-        let p = test_params();
+        let p = test_train();
         let d = DriverInput {
             power_ratio: 0.8,
             brake_ratio: 0.0,
@@ -292,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_accelerating_from_standstill_distance() {
-        let p = test_params();
+        let p = test_train();
         let d = DriverInput {
             power_ratio: 0.8,
             brake_ratio: 0.0,
@@ -318,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_braking() {
-        let p = test_params();
+        let p = test_train();
         let d = DriverInput {
             power_ratio: 0.0,
             brake_ratio: 0.5,
@@ -337,7 +337,7 @@ mod tests {
 
     #[test]
     fn test_braking_distance() {
-        let p = test_params();
+        let p = test_train();
         let d = DriverInput {
             power_ratio: 0.0,
             brake_ratio: 0.5,
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn test_positive_gradient() {
-        let p = test_params();
+        let p = test_train();
         let d = DriverInput {
             power_ratio: 0.8,
             brake_ratio: 0.0,
@@ -382,7 +382,7 @@ mod tests {
 
     #[test]
     fn test_positive_gradient_distance() {
-        let p = test_params();
+        let p = test_train();
         let d = DriverInput {
             power_ratio: 0.8,
             brake_ratio: 0.0,
@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_negative_gradient() {
-        let p = test_params();
+        let p = test_train();
         let d = DriverInput {
             power_ratio: 0.8,
             brake_ratio: 0.0,
@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn test_negative_gradient_distance() {
-        let p = test_params();
+        let p = test_train();
         let d = DriverInput {
             power_ratio: 0.8,
             brake_ratio: 0.0,
