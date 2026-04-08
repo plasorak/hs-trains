@@ -105,6 +105,26 @@ pub fn load_formation(path: &Path, formation_id: &str) -> Result<TrainDescriptio
         .find(|n| n.has_tag_name((NS, "daviesFormulaFactors")))
         .ok_or_else(|| err("no <daviesFormulaFactors> inside <trainResistance>"))?;
 
+    // Davis A [N] — constant mechanical resistance; stored as-is.
+    let davis_a: f64 = davies
+        .attribute("constantFactorA")
+        .ok_or_else(|| err("<daviesFormulaFactors> missing 'constantFactorA'"))?
+        .parse()
+        .map_err(|_| err("invalid 'constantFactorA' value"))?;
+
+    // Davis B [N/(km/h)] — linear speed term.  Convert to SI (N·s/m):
+    //   B_davis × v_kmh = B_davis × (v_ms × 3.6)
+    // so  davis_b [N·s/m] = B_davis × 3.6
+    let b_davis: f64 = davies
+        .attribute("speedDependentFactorB")
+        .ok_or_else(|| err("<daviesFormulaFactors> missing 'speedDependentFactorB'"))?
+        .parse()
+        .map_err(|_| err("invalid 'speedDependentFactorB' value"))?;
+    let davis_b = b_davis * 3.6;
+
+    // Davis C [N/(km/h)²] — aerodynamic drag.  Convert to kg/m:
+    //   C_davis × v_kmh² = (C_davis × 3.6²) × v_ms²
+    // so  drag_coeff [kg/m] = C_davis × 12.96
     let c_davis: f64 = davies
         .attribute("squareSpeedDependentFactorC")
         .ok_or_else(|| err("<daviesFormulaFactors> missing 'squareSpeedDependentFactorC'"))?
@@ -128,6 +148,8 @@ pub fn load_formation(path: &Path, formation_id: &str) -> Result<TrainDescriptio
         traction_force_at_standstill,
         max_speed,
         mass,
+        davis_a,
+        davis_b,
         drag_coeff,
         braking_force,
     })

@@ -11,6 +11,8 @@ Field mapping (physics param → RailML location):
   traction_n        → …/info/@maxTractiveEffort
   max_speed_kmh     → formation/@speed
   mass_kg           → formation/@tareWeight  (÷ 1 000 → tonnes)
+  davis_a_n         → formation/trainResistance/daviesFormulaFactors/@constantFactorA  (N)
+  davis_b_n_kmh     → formation/trainResistance/daviesFormulaFactors/@speedDependentFactorB  (N/(km/h))
   drag_coeff [kg/m] → formation/trainResistance/daviesFormulaFactors/@squareSpeedDependentFactorC
                         (÷ 12.96 converts kg/m → N/(km/h)²)
   braking_force_n   → formation/trainBrakes/@meanDeceleration  (÷ mass_kg → m/s²)
@@ -53,6 +55,8 @@ FLEET_PARAMS = {
     "traction_n":      (200_000,   600_000),     # N at standstill
     "max_speed_kmh":   (80,        160),         # km/h
     "mass_kg":         (500_000, 3_000_000),     # kg
+    "davis_a_n":       (1_000,     6_000),       # N  — constant mechanical resistance
+    "davis_b_n_kmh":   (0.0,       50.0),        # N/(km/h) — linear speed term
     "drag_coeff":      (5.0,       15.0),        # kg/m
     "braking_force_n": (300_000, 1_000_000),     # N
     "gradient":        (-0.02,     0.02),        # rise/run
@@ -74,6 +78,8 @@ def make_formation(index: int, rng: random.Random) -> tuple[Formation, dict]:
     traction_n = round(r(*p["traction_n"]))
     max_speed_kmh = round(r(*p["max_speed_kmh"]), 1)
     mass_kg = round(r(*p["mass_kg"]))
+    davis_a_n = round(r(*p["davis_a_n"]), 1)
+    davis_b_n_kmh = round(r(*p["davis_b_n_kmh"]), 3)
     drag_coeff = round(r(*p["drag_coeff"]), 2)
     braking_force_n = round(r(*p["braking_force_n"]))
     gradient = round(r(*p["gradient"]), 4)
@@ -82,7 +88,7 @@ def make_formation(index: int, rng: random.Random) -> tuple[Formation, dict]:
 
     formation_id = f"formation_train_{index:03d}"
 
-    # Davis C coefficient: drag_coeff [kg/m] = C [N/(km/h)²] × 12.96
+    # Davis C: drag_coeff [kg/m] = C [N/(km/h)²] × 12.96
     c_davis = round(drag_coeff / 12.96, 6)
     mean_decel = round(braking_force_n / mass_kg, 6)  # m/s²
 
@@ -107,10 +113,8 @@ def make_formation(index: int, rng: random.Random) -> tuple[Formation, dict]:
         train_brakes=[FormationBrakeSystem(mean_deceleration=Decimal(str(mean_decel)))],
         train_resistance=TrainDrivingResistance(
             davies_formula_factors=DaviesFormula(
-                # A and B terms are zero; the Rust engine handles rolling resistance
-                # internally (0.002 × mass × g), so only the aerodynamic C term is needed.
-                constant_factor_a=Decimal("0"),
-                speed_dependent_factor_b=Decimal("0"),
+                constant_factor_a=Decimal(str(davis_a_n)),
+                speed_dependent_factor_b=Decimal(str(davis_b_n_kmh)),
                 square_speed_dependent_factor_c=Decimal(str(c_davis)),
             )
         ),

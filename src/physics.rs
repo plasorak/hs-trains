@@ -36,7 +36,7 @@ fn net_force_at_speed(
 
     let gravity_force = params.mass * G * env.gradient;
     let drag_force = params.drag_coeff * (v + env.wind_speed).powi(2);
-    let rolling_resistance = 0.002 * params.mass * G;
+    let rolling_resistance = params.davis_a + params.davis_b * v;
 
     traction_force - gravity_force - drag_force - rolling_resistance - braking_force
 }
@@ -216,6 +216,8 @@ mod tests {
             traction_force_at_standstill: 409_000.0,
             max_speed: 120.0,
             mass: 2_000_000.0,
+            davis_a: 39_240.0, // ≈ 0.002 × mass × g — equivalent to the old hardcoded value
+            davis_b: 0.0,
             drag_coeff: 10.0,
             braking_force: 800_000.0,
         }

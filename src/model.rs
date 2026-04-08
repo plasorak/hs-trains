@@ -69,10 +69,12 @@ impl TrainState {
 pub struct TrainDescription {
     pub power: f64,                        // Max Watts
     pub traction_force_at_standstill: f64, // N
-    pub max_speed: f64,
-    pub mass: f64,          // kg
-    pub drag_coeff: f64,    // aerodynamic drag coefficient (kg/m), tune as needed
-    pub braking_force: f64, // Newtons, maximum braking force
+    pub max_speed: f64,                    // km/h
+    pub mass: f64,                         // kg
+    pub davis_a: f64,                      // Davis constant term A (N)
+    pub davis_b: f64,                      // Davis linear term B, converted to SI (N·s/m)
+    pub drag_coeff: f64,                   // Davis quadratic term C, converted to SI (kg/m)
+    pub braking_force: f64,                // N, maximum braking force
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
