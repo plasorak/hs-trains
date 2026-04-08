@@ -6,10 +6,10 @@ moved into a new berth on the signalling panel.
 
 Columns produced
 ----------------
-train_id     : str   – Train identifier / headcode, e.g. "1A23"
-berth_id     : str   – Berth name (matches BerthDescription::name in the model)
-timestamp_ms : int64 – Unix epoch timestamp in milliseconds
-position_m   : float – Along-track distance from route origin, in metres
+train_id   : str     – Train identifier / headcode, e.g. "1A23"
+berth_id   : str     – Berth name (matches BerthDescription::name in the model)
+elapsed_s  : float64 – Sectional running time from journey start, in seconds
+length_m   : float64 – Length of this berth, in metres
 
 Usage
 -----
@@ -19,7 +19,6 @@ Usage
 
 import argparse
 import random
-from datetime import datetime, timezone
 
 import polars as pl
 
@@ -27,25 +26,21 @@ import polars as pl
 def make_berth_timing(
     train_id: str,
     n_berths: int,
-    start_time_ms: int,
-    start_pos_m: float = 0.0,
 ) -> list[dict]:
     """Return rows for one train moving through *n_berths* berths."""
     rng = random.Random(hash(train_id))  # reproducible per train ID
     rows = []
-    t = start_time_ms
-    x = start_pos_m
     for i in range(n_berths):
+        elapsed_s = rng.uniform(45.0, 150.0)   # travel time for this berth
+        length_m = rng.uniform(600.0, 1400.0)  # length of this berth
         rows.append(
             {
                 "train_id": train_id,
                 "berth_id": f"{train_id}_B{i + 1:02d}",
-                "timestamp_ms": t,
-                "position_m": round(x, 1),
+                "elapsed_s": round(elapsed_s, 3),
+                "length_m": round(length_m, 1),
             }
         )
-        x += rng.uniform(600.0, 1400.0)   # 600–1400 m between berth boundaries
-        t += int(rng.uniform(45.0, 150.0) * 1000)  # 45–150 s travel time
     return rows
 
 
@@ -70,21 +65,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    # Trains depart 5 minutes apart from a fixed reference time.
-    base_time_ms = int(
-        datetime(2024, 1, 15, 8, 0, 0, tzinfo=timezone.utc).timestamp() * 1000
-    )
-
     all_rows: list[dict] = []
-    for i, train_id in enumerate(args.trains):
-        start_ms = base_time_ms + i * 5 * 60 * 1000  # 5-minute headway
-        all_rows.extend(make_berth_timing(train_id, args.berths, start_ms))
+    for train_id in args.trains:
+        all_rows.extend(make_berth_timing(train_id, args.berths))
 
     df = pl.DataFrame(all_rows, schema={
         "train_id": pl.String,
         "berth_id": pl.String,
-        "timestamp_ms": pl.Int64,
-        "position_m": pl.Float64,
+        "elapsed_s": pl.Float64,
+        "length_m": pl.Float64,
     })
     df.write_parquet(args.output)
 

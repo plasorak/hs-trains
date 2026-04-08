@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 
+[[bin]]
+name = "hs-trains"
+path = "src/bin/hs_trains.rs"
+
 [dependencies]
 polars       = { version = "0.53", features = ["parquet"] }
 serde        = { version = "1",    features = ["derive"] }
@@ -12,3 +16,4 @@ clap         = { version = "4",    features = ["derive"] }
 indicatif    = "0.17"
 rayon        = "1"
 rand         = "0.8"
+roxmltree    = "0.20"
