@@ -27,10 +27,10 @@
 //! | `accel_integral_mss`     | Davis-ODE acceleration (physics engine, all sections)    |
 
 use clap::Parser;
-use hs_trains::model::{DriverInput, Environment, Position, SimulatedState};
-use hs_trains::physics::{AdvanceTarget, advance_train};
-use hs_trains::rollingstock;
-use hs_trains::timing::TimingTrace;
+use hs_trains::core::model::{DriverInput, Environment, Position, SimulatedState};
+use hs_trains::core::physics::{AdvanceTarget, advance_train};
+use hs_trains::io::railml_rollingstock;
+use hs_trains::core::timing::TimingTrace;
 use polars::prelude::*;
 use std::path::PathBuf;
 
@@ -89,7 +89,7 @@ fn main() {
     let cli = Cli::parse();
 
     let train =
-        rollingstock::load_formation(&cli.railml_file, &cli.formation_id).unwrap_or_else(|e| {
+        railml_rollingstock::load_formation(&cli.railml_file, &cli.formation_id).unwrap_or_else(|e| {
             eprintln!("Error loading rollingstock: {e}");
             std::process::exit(1)
         });
