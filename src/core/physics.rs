@@ -38,7 +38,14 @@ fn net_force_at_speed(
     let drag_force = train.drag_coeff * (v + env.wind_speed).powi(2);
     let rolling_resistance = train.davis_a + train.davis_b * v;
 
-    traction_force - gravity_force - drag_force - rolling_resistance - braking_force
+    // Speed-limiter governor: a fictitious resistive force ~1/(v_max - v)^2 that
+    // diverges as v → v_max, making the equilibrium fall just below the speed limit
+    // without a hard clamp. The small constant (0.01) keeps the force negligible at
+    // normal operating speeds while still pinning the terminal velocity to v_max.
+    let vmax = train.max_speed / 3.6;
+    let governor = 0.01 / (v - vmax).powi(2);
+
+    traction_force - gravity_force - drag_force - rolling_resistance - braking_force - governor
 }
 
 #[allow(dead_code)]
