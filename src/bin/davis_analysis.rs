@@ -1,28 +1,30 @@
-//! Three-section analysis tool: physics → timing → physics for a single train.
+//! Two-section analysis tool: timing → physics for a single train.
 //!
-//! In the timing section (section 2) two speed estimates are recorded side-by-side:
+//! Section 1 uses the timing trace to capture the train's behaviour from rest
+//! (where the Davis equation is hardest to calibrate). Two speed estimates are
+//! recorded side-by-side:
 //!
 //! * **Differential** — finite difference of the timing-trace position:
 //!   `v_diff(t) = (pos(t) − pos(t−dt)) / dt`
 //!   `a_diff(t) = (v_diff(t) − v_diff(t−dt)) / dt`
 //!
-//! * **Integral** — Davis-equation ODE integrated forward (physics engine running
-//!   in parallel, not synced to timing):
+//! * **Integral** — Davis-equation ODE integrated forward from rest in parallel
+//!   (not synced to timing):
 //!   `F_net = F_traction − F_gravity − (A + B·v + C·v²) − F_braking`
 //!   `v_integ(t+dt) = v_integ(t) + (F_net/m)·dt`
 //!
-//! At the section-2 → section-3 boundary the physics state is re-seeded to
-//! `(pos_timing, v_diff, a=0)` so section-3 physics starts from a sensible state.
+//! At the timing → physics boundary the physics state is re-seeded to
+//! `(pos_timing, v_diff, a=0)` so section 2 starts from the last observed state.
 //!
 //! ## Output schema
 //!
 //! | column                   | description                                              |
 //! |--------------------------|----------------------------------------------------------|
 //! | `time_s`                 | elapsed simulation time (s)                              |
-//! | `section`                | 1 = physics, 2 = timing, 3 = physics                     |
-//! | `position_m`             | timing position in §2; physics position in §1 and §3     |
-//! | `speed_differential_kmh` | Δpos/Δt speed estimate — §2 only, null elsewhere         |
-//! | `accel_differential_mss` | Δspeed/Δt accel estimate — §2 only, null elsewhere       |
+//! | `section`                | 1 = timing, 2 = physics                                  |
+//! | `position_m`             | timing position in §1; physics position in §2            |
+//! | `speed_differential_kmh` | Δpos/Δt speed estimate — §1 only, null elsewhere         |
+//! | `accel_differential_mss` | Δspeed/Δt accel estimate — §1 only, null elsewhere       |
 //! | `speed_integral_kmh`     | Davis-ODE speed (physics engine, all sections)           |
 //! | `accel_integral_mss`     | Davis-ODE acceleration (physics engine, all sections)    |
 
@@ -37,38 +39,34 @@ use std::path::PathBuf;
 #[derive(Parser)]
 #[command(
     name = "davis-analysis",
-    about = "Physics / timing / physics three-section analysis"
+    about = "Timing / physics two-section analysis"
 )]
 struct Cli {
     /// RailML 3.3 file containing the formation
     railml_file: PathBuf,
     /// Formation ID to load from the RailML file
     formation_id: String,
-    /// Parquet berth-timing file used for section 2
+    /// Parquet berth-timing file used for section 1
     timing_file: PathBuf,
     /// Train ID to read from the timing file
     timing_train_id: String,
     /// Output Parquet file
     output: PathBuf,
 
-    /// Duration of section 1 (first physics section) in seconds
+    /// Duration of section 1 (timing section) in seconds
     #[arg(long, default_value_t = 300.0)]
-    section1_s: f64,
+    timing_s: f64,
 
-    /// Duration of section 2 (timing section) in seconds
+    /// Duration of section 2 (physics section) in seconds
     #[arg(long, default_value_t = 300.0)]
-    section2_s: f64,
-
-    /// Duration of section 3 (second physics section) in seconds
-    #[arg(long, default_value_t = 300.0)]
-    section3_s: f64,
+    physics_s: f64,
 
     /// Integration / output time step in seconds
     #[arg(long, default_value_t = 1.0)]
     dt: f64,
 
-    /// Shift into the timing trace: t_trace = t_sim − section1_s + timing_offset_s.
-    /// Use this to pick which part of the trace lines up with section 2.
+    /// Shift into the timing trace: t_trace = t_sim + timing_offset_s.
+    /// Use this to pick which part of the trace aligns with the start of the run.
     #[arg(long, default_value_t = 0.0)]
     timing_offset_s: f64,
 
@@ -108,10 +106,9 @@ fn main() {
         brake_ratio: 0.0,
     };
 
-    let s1 = (cli.section1_s / cli.dt).round() as usize;
-    let s2 = (cli.section2_s / cli.dt).round() as usize;
-    let s3 = (cli.section3_s / cli.dt).round() as usize;
-    let total = s1 + s2 + s3;
+    let s1 = (cli.timing_s / cli.dt).round() as usize;
+    let s2 = (cli.physics_s / cli.dt).round() as usize;
+    let total = s1 + s2;
 
     let mut times: Vec<f64> = Vec::with_capacity(total);
     let mut sections: Vec<i32> = Vec::with_capacity(total);
@@ -121,40 +118,23 @@ fn main() {
     let mut spd_integ: Vec<f64> = Vec::with_capacity(total);
     let mut acc_integ: Vec<f64> = Vec::with_capacity(total);
 
+    // Both sections share a common origin: the train starts from rest at position 0.
     let mut state = SimulatedState {
-        position: Position {
-            x: 0.0,
-            y: 0.0,
-            z: 0.0,
-        },
+        position: Position { x: 0.0, y: 0.0, z: 0.0 },
         speed: 0.0,
         acceleration: 0.0,
     };
 
     // -----------------------------------------------------------------------
-    // Section 1 — pure physics
-    // -----------------------------------------------------------------------
-    for step in 0..s1 {
-        let t = step as f64 * cli.dt;
-        state = advance_train(&state, &train, &driver, &env, AdvanceTarget::Time(cli.dt));
-        times.push(t);
-        sections.push(1);
-        pos_out.push(state.position.x);
-        spd_diff.push(None);
-        acc_diff.push(None);
-        spd_integ.push(state.speed * 3.6);
-        acc_integ.push(state.acceleration);
-    }
-
-    // -----------------------------------------------------------------------
-    // Section 2 — timing trace (differential) + physics in parallel (integral)
+    // Section 1 — timing trace (differential) + physics in parallel (integral)
+    // Both start from rest, so no position offset is needed.
     // -----------------------------------------------------------------------
     let mut prev_timing_pos: Option<f64> = None;
     let mut prev_diff_speed_ms: Option<f64> = None;
 
-    for step in 0..s2 {
-        let t = (s1 + step) as f64 * cli.dt;
-        let t_trace = t - cli.section1_s + cli.timing_offset_s;
+    for step in 0..s1 {
+        let t = step as f64 * cli.dt;
+        let t_trace = t + cli.timing_offset_s;
 
         let timing_pos = trace.position_at(t_trace);
 
@@ -174,7 +154,7 @@ fn main() {
         state = advance_train(&state, &train, &driver, &env, AdvanceTarget::Time(cli.dt));
 
         times.push(t);
-        sections.push(2);
+        sections.push(1);
         // Use timing position when available; fall back to physics if trace has no data.
         pos_out.push(timing_pos.unwrap_or(state.position.x));
         spd_diff.push(diff_speed_ms.map(|v| v * 3.6));
@@ -187,7 +167,7 @@ fn main() {
     }
 
     // -----------------------------------------------------------------------
-    // Section 2 → 3 boundary: re-seed physics from last timing observation.
+    // Section 1 → 2 boundary: re-seed physics from last timing observation.
     // Assume a = 0 at the berth boundary; physics will compute the correct
     // acceleration from forces at the very next step.
     // -----------------------------------------------------------------------
@@ -200,13 +180,13 @@ fn main() {
     state.acceleration = 0.0;
 
     // -----------------------------------------------------------------------
-    // Section 3 — physics from synced state
+    // Section 2 — physics from synced state
     // -----------------------------------------------------------------------
-    for step in 0..s3 {
-        let t = (s1 + s2 + step) as f64 * cli.dt;
+    for step in 0..s2 {
+        let t = (s1 + step) as f64 * cli.dt;
         state = advance_train(&state, &train, &driver, &env, AdvanceTarget::Time(cli.dt));
         times.push(t);
-        sections.push(3);
+        sections.push(2);
         pos_out.push(state.position.x);
         spd_diff.push(None);
         acc_diff.push(None);
@@ -246,19 +226,13 @@ fn main() {
 
     println!("Written {n} rows to '{}'", cli.output.display());
     println!(
-        "  §1 physics : {:>5} rows   (t = 0 … {:.0} s)",
-        s1, cli.section1_s
+        "  §1 timing  : {:>5} rows   (t = 0 … {:.0} s)",
+        s1, cli.timing_s
     );
     println!(
-        "  §2 timing  : {:>5} rows   (t = {:.0} … {:.0} s)",
+        "  §2 physics : {:>5} rows   (t = {:.0} … {:.0} s)",
         s2,
-        cli.section1_s,
-        cli.section1_s + cli.section2_s
-    );
-    println!(
-        "  §3 physics : {:>5} rows   (t = {:.0} … {:.0} s)",
-        s3,
-        cli.section1_s + cli.section2_s,
-        cli.section1_s + cli.section2_s + cli.section3_s
+        cli.timing_s,
+        cli.timing_s + cli.physics_s
     );
 }
