@@ -25,11 +25,13 @@ Usage
 """
 
 import argparse
+import uuid
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from decimal import Decimal
 from itertools import combinations
 from pathlib import Path
+from typing import Literal
 from xml.etree.ElementTree import ElementTree, fromstring, indent
 
 import geopandas as gpd
@@ -95,17 +97,22 @@ def _build_net_elements(lines_bng: gpd.GeoDataFrame) -> list[NetElement]:
     return elements
 
 
-def _build_net_relations(lines_bng: gpd.GeoDataFrame) -> list[NetRelation]:
+def _build_net_relations(
+    lines_bng: gpd.GeoDataFrame,
+) -> tuple[list[NetRelation], set[tuple[int, int]]]:
     """Infer connectivity from shared segment endpoints.
 
     For each node coordinate, collect all segment ends that coincide there,
     then emit one NetRelation for every pair.  This is conservative: at a
     switch with three meeting segments it produces three relations (all
     traversal options), because GTCL carries no routing constraint.
+
+    Also returns the set of all endpoint coordinates so callers can avoid a
+    redundant pass over the geometry.
     """
     # endpoint_map[coord] = [(segment_id, position), ...]
-    # position: 0 = start of segment, 1 = end of segment
-    endpoint_map: dict[tuple[int, int], list[tuple[str, str]]] = defaultdict(list)
+    # position: "0" = start of segment, "1" = end of segment
+    endpoint_map: dict[tuple[int, int], list[tuple[str, Literal["0", "1"]]]] = defaultdict(list)
     for _, row in lines_bng.iterrows():
         seg_id = f"ne_{row['ASSETID']}"
         coords = list(row.geometry.coords)
@@ -122,14 +129,14 @@ def _build_net_relations(lines_bng: gpd.GeoDataFrame) -> list[NetRelation]:
                 NetRelation(
                     id=f"nr_{rel_idx:07d}",
                     navigability="Both",
-                    position_on_a=pos_a,  # type: ignore[arg-type]
-                    position_on_b=pos_b,  # type: ignore[arg-type]
+                    position_on_a=pos_a,
+                    position_on_b=pos_b,
                     element_a=ElementA(ref=id_a),
                     element_b=ElementB(ref=id_b),
                 )
             )
             rel_idx += 1
-    return relations
+    return relations, set(endpoint_map.keys())
 
 
 def _build_networks(lines_bng: gpd.GeoDataFrame) -> list[Network]:
@@ -196,17 +203,15 @@ def _build_functional_nodes(
     buffer_stops: list[BufferStop] = []
     borders: list[Border] = []
 
-    node_idx = 0
     for (_, row_bng), (_, row_wgs84) in zip(
         nodes_bng.iterrows(), nodes_wgs84.iterrows()
     ):
         coord = _round_bng(row_bng.geometry.x, row_bng.geometry.y)
         if coord not in segment_endpoints:
-            node_idx += 1
             continue
 
         valancy = row_bng.get("VALANCY")
-        asset_id = str(row_bng.get("ASSETID", node_idx))
+        asset_id = str(row_bng.get("ASSETID") or uuid.uuid4())
         lon, lat = row_wgs84.geometry.x, row_wgs84.geometry.y
         gml = [GmlLocation(point=GmlPoint(pos=GmlPos(root=_pospoint(lon, lat))))]
 
@@ -218,19 +223,8 @@ def _build_functional_nodes(
             switches.append(SwitchIS(id=f"sw_{asset_id}", gml_locations=gml))
         # valancy 2 = simple through-node; no functional element needed
 
-        node_idx += 1
-
     return switches, buffer_stops, borders
 
-
-def _segment_endpoints(lines_bng: gpd.GeoDataFrame) -> set[tuple[int, int]]:
-    """Collect the rounded BNG coordinates of all segment start/end points."""
-    endpoints: set[tuple[int, int]] = set()
-    for _, row in lines_bng.iterrows():
-        coords = list(row.geometry.coords)
-        endpoints.add(_round_bng(*coords[0]))
-        endpoints.add(_round_bng(*coords[-1]))
-    return endpoints
 
 
 def main() -> None:
@@ -246,6 +240,11 @@ def main() -> None:
         " Omit to convert the entire network (slow, large output).",
     )
     args = parser.parse_args()
+
+    if not GPKG.exists():
+        raise SystemExit(
+            f"GeoPackage not found: {GPKG}\nRun 'uv run network-map' first to verify the asset path."
+        )
 
     # ------------------------------------------------------------------
     # Load layers
@@ -280,7 +279,7 @@ def main() -> None:
     net_elements = _build_net_elements(lines_bng)
 
     print("Building net relations …")
-    net_relations = _build_net_relations(lines_bng)
+    net_relations, endpoints = _build_net_relations(lines_bng)
 
     print("Building networks (ELR groupings) …")
     networks = _build_networks(lines_bng)
@@ -292,7 +291,6 @@ def main() -> None:
     tracks = _build_tracks(lines_bng, lines_wgs84)
 
     print("Building functional nodes (switches / buffer stops) …")
-    endpoints = _segment_endpoints(lines_bng)
     switches, buffer_stops, borders = _build_functional_nodes(
         nodes_bng, nodes_wgs84, endpoints
     )

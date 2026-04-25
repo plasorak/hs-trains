@@ -17,12 +17,13 @@ import geopandas as gpd
 import plotly.graph_objects as go
 import typer
 
-ASSETS_DIR = Path(__file__).parents[2] / "assets"
-GPKG = ASSETS_DIR / "NWR_GTCL20260309.gpkg"
+GPKG = Path(__file__).parents[2] / "assets" / "NWR_GTCL20260309.gpkg"
 
 
 def _load_layer(layer: str, simplify_m: float | None = None) -> gpd.GeoDataFrame:
     gdf = gpd.read_file(GPKG, layer=layer)
+    if "SUPERCEDED" in gdf.columns:
+        gdf = gdf[gdf["SUPERCEDED"] != "YES"]
     if simplify_m is not None:
         # Simplify in the native CRS (metres) before reprojecting to keep accuracy.
         gdf["geometry"] = gdf.geometry.simplify(simplify_m, preserve_topology=True)
@@ -95,7 +96,7 @@ def main(
     tol = simplify if simplify > 0 else None
     lines = _load_layer("NWR_GTCL", simplify_m=tol)
 
-    typer.echo(f"Loading junction nodes …")
+    typer.echo("Loading junction nodes …")
     nodes = _load_layer("NWR_GTCL_Nodes")
 
     typer.echo("Building figure …")

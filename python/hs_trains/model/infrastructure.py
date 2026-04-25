@@ -12,6 +12,7 @@ electrification, platforms, …) are intentionally omitted.
 from decimal import Decimal
 from typing import Literal, Optional
 
+from pydantic import model_validator
 from pydantic_xml import BaseXmlModel, RootXmlModel, attr, element
 
 from hs_trains.model.common import (
@@ -65,6 +66,12 @@ class GmlLocation(_InfraBase, tag="gmlLocation", ns=_NS):
 
     line_string: Optional[GmlLineString] = element(tag="LineString", ns=_GML, default=None)
     point: Optional[GmlPoint] = element(tag="Point", ns=_GML, default=None)
+
+    @model_validator(mode="after")
+    def _exactly_one_geometry(self) -> "GmlLocation":
+        if (self.line_string is None) == (self.point is None):
+            raise ValueError("GmlLocation must have exactly one of line_string or point")
+        return self
 
 
 # ---------------------------------------------------------------------------
@@ -183,7 +190,9 @@ class Track(_InfraBase, tag="track", ns=_NS):
     """
 
     id: str = attr(name="id", default_factory=_make_id)
-    # Back-reference to the netElement carrying this track's topology.
+    # TODO: In RailML 3.3 the Track→NetElement link belongs in a child
+    # networkLocation element, not as a direct attribute.  This is a pragmatic
+    # extension that works for our output but will fail schema validation.
     net_element_ref: Optional[str] = attr(name="netElementRef", default=None)
     designators: list[Designator] = element(tag="designator", ns=_NS, default_factory=list)
     gml_locations: list[GmlLocation] = element(

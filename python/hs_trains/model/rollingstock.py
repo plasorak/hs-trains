@@ -10,7 +10,7 @@ from typing import Annotated, Literal, Optional
 from pydantic import PlainSerializer
 from pydantic_xml import BaseXmlModel, attr, element
 
-from hs_trains.model.common import (  # noqa: F401  (re-exported for existing importers)
+from hs_trains.model.common import (  # re-exported: existing callers import these from here
     NS,
     _NS,
     _NSMAP,
