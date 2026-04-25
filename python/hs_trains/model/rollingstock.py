@@ -4,27 +4,24 @@ Covers vehicles, formations, engines, brakes, driving resistance, and the
 curve/value-table primitives used throughout the rollingstock schema.
 """
 
-import uuid
 from decimal import Decimal
 from typing import Annotated, Literal, Optional
 
 from pydantic import PlainSerializer
 from pydantic_xml import BaseXmlModel, attr, element
 
-NS = "https://www.railml.org/schemas/3.3"
-_NS = "rail3"  # prefix alias used throughout
-_NSMAP = {_NS: NS}
-
-
-class _Base(BaseXmlModel, nsmap=_NSMAP):
-    """Base class that propagates the railML namespace map to all submodels."""
+from hs_trains.model.common import (  # re-exported: existing callers import these from here
+    NS,
+    _NS,
+    _NSMAP,
+    _Base,
+    _make_id,
+    Designator,
+    Name,
+)
 
 # xs:boolean must be lowercase "true"/"false"
 XmlBool = Annotated[bool, PlainSerializer(lambda v: "true" if v else "false", return_type=str)]
-
-
-def _make_id() -> str:
-    return f"id_{uuid.uuid4().hex[:8]}"
 
 
 # ---------------------------------------------------------------------------
@@ -47,23 +44,6 @@ class ValueTable(_Base, tag="valueTable", ns=_NS):
     y_value_name: str = attr(name="yValueName")
     y_value_unit: str = attr(name="yValueUnit")
     value_lines: list[ValueLine] = element(tag="valueLine", ns=_NS, default_factory=list)
-
-
-# ---------------------------------------------------------------------------
-# Common identifier  (generic3.xsd: Designator, Name)
-# ---------------------------------------------------------------------------
-
-
-class Designator(_Base, tag="designator", ns=_NS):
-    register_name: str = attr(name="register")
-    entry: str = attr(name="entry")
-    description: Optional[str] = attr(name="description", default=None)
-
-
-class Name(_Base, tag="name", ns=_NS):
-    name: str = attr(name="name")
-    language: str = attr(name="language")
-    description: Optional[str] = attr(name="description", default=None)
 
 
 # ---------------------------------------------------------------------------

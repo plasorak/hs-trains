@@ -11,10 +11,13 @@ make-timing-parquet = "hs_trains.make_timing_parquet:main"
 run-100trains = "hs_trains.run_100trains:app"
 plot = "hs_trains.plot:main"
 rollingstock-editor = "hs_trains.rollingstock_ui:launch"
+network-map = "hs_trains.network_map:app"
+make-gtcl-railml = "hs_trains.make_gtcl_railml:main"
 
 [dependency-groups]
 dev = [
     "pytest>=9.0.2",
+    "pytest-cov",
     "pandas",
     "ipykernel",
 ]
@@ -35,6 +38,8 @@ dependencies = [
     "pydantic>=2.0",
     "pydantic-xml>=2.0",
     "xmlschema>=3.0",
+    "geopandas>=1.0",
+    "plotly>=6.0",
 ]
 
 [tool.pytest.ini_options]
