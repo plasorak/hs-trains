@@ -1,4 +1,5 @@
 ---
+name: start-task
 description: Use this at the start of every coding task, before making any changes. Checks out main, pulls latest, creates a new branch, and sets up for a PR.
 ---
 
