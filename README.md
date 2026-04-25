@@ -1,5 +1,8 @@
 # hs-trains
 
+[![CI](https://github.com/plasorak/hs-trains/actions/workflows/ci.yml/badge.svg)](https://github.com/plasorak/hs-trains/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/plasorak/hs-trains/graph/badge.svg)](https://codecov.io/gh/plasorak/hs-trains)
+
 A train network simulator written in Rust. Physics and timing trains can be freely mixed in a single simulation — time is always the outer loop, so every train advances together at each step.
 
 ## Name
