@@ -92,6 +92,8 @@ def main(
     ),
     open_browser: bool = typer.Option(True, "--open/--no-open", help="Open in browser after saving"),
 ) -> None:
+    if not GPKG.exists():
+        raise SystemExit(f"GeoPackage not found: {GPKG}\nRun 'uv run network-map' first to verify the asset path.")
     typer.echo(f"Loading track segments from {GPKG} …")
     tol = simplify if simplify > 0 else None
     lines = _load_layer("NWR_GTCL", simplify_m=tol)

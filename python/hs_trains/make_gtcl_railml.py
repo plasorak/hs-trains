@@ -226,7 +226,6 @@ def _build_functional_nodes(
     return switches, buffer_stops, borders
 
 
-
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Convert NWR_GTCL GeoPackage to RailML 3.3 infrastructure topology."
@@ -258,7 +257,7 @@ def main() -> None:
         if lines_bng.empty:
             raise SystemExit(f"No segments found for ELR(s): {args.elr}")
 
-    print(f"Loading NWR_GTCL_Nodes …")
+    print("Loading NWR_GTCL_Nodes …")
     nodes_bng: gpd.GeoDataFrame = gpd.read_file(GPKG, layer="NWR_GTCL_Nodes")
     nodes_bng = nodes_bng[nodes_bng["SUPERCEDED"] != "YES"].reset_index(drop=True)
 

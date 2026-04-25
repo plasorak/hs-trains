@@ -21,7 +21,7 @@ The main geometry layer. Each row is a single directed track segment represented
 | Column | Type | Description |
 |---|---|---|
 | `ASSETID` | string | Unique asset identifier within the Network Rail asset register. Nearly all values are unique; a handful of segments share an ID where one record supersedes another. |
-| `ELR` | string | **Engineer's Line Reference** — the primary human-readable track identifier used across UK rail (e.g. `ECM` = East Coast Main Line, `MLN1` = Midland Main Line North). There are **1 403 distinct ELRs** in this extract. |
+| `ELR` | string | **Engineer's Line Reference** — the primary human-readable track identifier used across UK rail (e.g. `ECM1` = East Coast Main Line section 1, `MLN1` = Midland Main Line North). There are **1 403 distinct ELRs** in this extract. |
 | `TRID` | string | Track Record ID — a finer-grained identifier below ELR level; 892 unique values, nullable in a small number of rows. |
 | `SOURCE` | string | Data provenance: `"New Feature Extracted"` (79 % of rows) or a second value for manually digitised additions. |
 | `SUPERCEDED` | string | `"YES"` / `"NO"` flag. Superseded segments are retained for audit purposes but should be filtered out for operational use — the majority (`"NO"`) are current. |
@@ -65,7 +65,7 @@ Nodes connecting the supplementary link segments.
 
 ## Key domain concepts
 
-**Engineer's Line Reference (ELR)** — the primary identifier for a track route in UK rail. An ELR covers the full length of a named line and is subdivided into mileage-based sections. The GTCL uses it as a grouping key: all segments belonging to the East Coast Main Line share the ELR `ECM`, for example. ELRs are the bridge between this geometry file and timetable/operational data sources.
+**Engineer's Line Reference (ELR)** — the primary identifier for a track route in UK rail. An ELR covers the full length of a named line and is subdivided into mileage-based sections. The GTCL uses it as a grouping key: all segments belonging to a section of the East Coast Main Line share the same ELR (e.g. `ECM1`–`ECM9`), for example. ELRs are the bridge between this geometry file and timetable/operational data sources.
 
 **Valancy** — the number of edges connected at a node. In a simple bidirectional track, interior nodes have valancy 2. Switches introduce valancy 3; diamond crossings introduce valancy 4. Valancy 1 marks a dead end (buffer stop or an open network boundary).
 
