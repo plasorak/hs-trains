@@ -8,3 +8,4 @@ __pycache__/
 output.xml
 *.ipynb
 analyse.py
+assets/*.gpkg
