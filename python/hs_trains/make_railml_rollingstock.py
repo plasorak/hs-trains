@@ -277,14 +277,20 @@ def main() -> None:
     print(f"  Max speed     : {formation.speed} km/h")
 
     schema_path = Path.cwd() / _RAILML_SCHEMA_RELATIVE
-    dcterms_stub = str(schema_path.parent / "dcterms_stub.xsd")
-    print(f"\nValidating against {schema_path.name} ...")
-    xs = xmlschema.XMLSchema(
-        str(schema_path),
-        locations={"http://purl.org/dc/terms/": dcterms_stub},
-    )
-    xs.validate(args.output)
-    print("  OK — document is schema-valid.")
+    if schema_path.exists():
+        dcterms_stub = str(schema_path.parent / "dcterms_stub.xsd")
+        print(f"\nValidating against {schema_path.name} ...")
+        xs = xmlschema.XMLSchema(
+            str(schema_path),
+            locations={"http://purl.org/dc/terms/": dcterms_stub},
+        )
+        xs.validate(args.output)
+        print("  OK — document is schema-valid.")
+    else:
+        print(
+            "\nSkipping schema validation — XSD not found. "
+            "See README for download instructions."
+        )
 
 
 if __name__ == "__main__":

@@ -9,3 +9,5 @@ output.xml
 *.ipynb
 analyse.py
 assets/*.gpkg
+# RailML XSD schema — CC BY-NC-ND 4.0, not redistributable; download manually (see README)
+railml/

@@ -176,3 +176,20 @@ uv run scripts/run_100trains.py --help
 ```sh
 cargo test
 ```
+
+## RailML schema (optional, non-commercial use only)
+
+Some Python tests validate generated XML against the official RailML 3.3 XSD schema. The schema is **not bundled** in this repository because it is licensed under [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/), which is incompatible with this project's MIT licence.
+
+If you intend to use this repository for **non-commercial purposes** and want the schema validation tests to run, download the schema from [railml.org](https://www.railml.org/en/download/) and extract it so that the directory structure looks like:
+
+```
+railml/
+└── railML-3.3-SR1/
+    └── source/
+        └── schema/
+            ├── railml3.xsd
+            └── ...
+```
+
+With the schema in place, `validate_xml()` in `python/hs_trains/utils.py` and the `uv run make-railml-rollingstock` script will validate output against the schema. Without it, validation is silently skipped.

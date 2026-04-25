@@ -16,7 +16,7 @@
 
 hs-trains currently parses only the **rollingstock** sub-schema. Infrastructure support is planned (stub: `src/assets.rs`).
 
-The official XSD schema is bundled at `railml/railML-3.3-SR1/`. A small stub (`dcterms_stub.xsd`) replaces the unavailable Dublin Core Terms namespace referenced by `common3.xsd`.
+The official XSD schema is **not bundled** (it is licensed CC BY-NC-ND 4.0 and cannot be redistributed). See the README for download instructions. A small stub (`dcterms_stub.xsd`) replaces the unavailable Dublin Core Terms namespace referenced by `common3.xsd`; this stub is included in the schema download.
 
 ---
 
@@ -90,7 +90,13 @@ RailML's XSD requires lowercase `"true"` / `"false"` for boolean attributes. Pyt
 
 ## XSD Validation
 
-The schema is bundled in the repository at `railml/railML-3.3-SR1/` — no separate download is required. The path below is relative to the repo root.
+The RailML schema is licensed **CC BY-NC-ND 4.0** and is not bundled in this repository. To enable schema validation, download the schema from [railml.org](https://www.railml.org/en/download/) (non-commercial use only) and extract it so that the following path exists relative to the repo root:
+
+```
+railml/railML-3.3-SR1/source/schema/railml3.xsd
+```
+
+Once present, validation works as follows:
 
 ```python
 import xmlschema
@@ -106,4 +112,4 @@ xs = xmlschema.XMLSchema(
 xs.validate("output.xml")
 ```
 
-The Dublin Core stub is needed because `common3.xsd` references `http://purl.org/dc/terms/` but that URL is unavailable. The stub at `railml/railML-3.3-SR1/source/schema/dcterms_stub.xsd` satisfies the import without fetching the upstream schema.
+The `dcterms_stub.xsd` file (included in the schema download) is needed because `common3.xsd` references `http://purl.org/dc/terms/` but that URL is unavailable at validation time.

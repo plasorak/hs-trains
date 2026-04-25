@@ -3,6 +3,8 @@
 from functools import cache
 from pathlib import Path
 
+# Expected location for the RailML 3.3 XSD schema.  The schema is not bundled
+# (it is CC BY-NC-ND 4.0); see the README for download instructions.
 _SCHEMA_PATH = (
     Path(__file__).parent.parent.parent
     / "railml/railML-3.3-SR1/source/schema/railml3.xsd"
@@ -28,7 +30,9 @@ def validate_xml(xml_str: str) -> list[str]:
     if not _SCHEMA_PATH.exists():
         raise FileNotFoundError(
             f"RailML XSD not found at {_SCHEMA_PATH}. "
-            "Clone the railML schema repository into railml/ to enable validation."
+            "Download the RailML 3.3 schema (non-commercial use only) from "
+            "https://www.railml.org/en/download/ and extract it so that "
+            "railml/railML-3.3-SR1/source/schema/railml3.xsd exists at the repo root."
         )
     try:
         xs = _load_schema()
