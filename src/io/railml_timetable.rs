@@ -47,7 +47,7 @@ fn parse_routes_xml(
     let tt_node = match doc.descendants().find(|n| n.has_tag_name((NS, "timetable"))) {
         Some(n) => n,
         None => {
-            println!("No <timetable> element in '{label}' — no routes loaded");
+            eprintln!("No <timetable> element in '{label}' — no routes loaded");
             return Ok(HashMap::new());
         }
     };
@@ -302,7 +302,7 @@ fn parse_routes_xml(
         }
 
         let route = Route::new(elements);
-        println!(
+        eprintln!(
             "Route for train '{ot_id}': {} elements, total {:.0} m",
             route.elements.len(),
             route.total_length_m,
@@ -614,5 +614,29 @@ mod tests {
         assert_eq!(route.elements[0].track_id, "track_A");
         assert_eq!(route.elements[1].track_id, "track_B");
         assert!((route.total_length_m - 300.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_all_tracks_missing_from_infra_produces_no_route() {
+        // All track IDs referenced by the route are absent from the infrastructure.
+        // The empty-elements guard should fire and no route should be produced.
+        let bi = base_itinerary(
+            "BIT_1",
+            &format!(
+                "{} {}",
+                bip("BIP_A", 1, &followup(&format!("{} {}", track_ref("track_X", 1), track_ref("track_Y", 2)))),
+                bip("BIP_B", 2, ""),
+            ),
+        );
+        let iti = itinerary("ITI_1", &range("BIT_1", 1));
+        let ot = op_train("OT_1", "OTV_1", "ITI_1");
+        let doc = full_doc(&bi, &iti, &ot);
+
+        // Empty infrastructure — none of the track IDs can be resolved.
+        let infra = make_infra(&[]);
+        let routes = parse_routes_xml(&doc, "test", &infra).unwrap();
+
+        // No route should be created when every track resolves to nothing.
+        assert!(!routes.contains_key("OT_1"));
     }
 }

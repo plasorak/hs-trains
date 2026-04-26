@@ -306,6 +306,67 @@ fn flush_batch<W: std::io::Write>(
     element_offset_m_data.clear();
 }
 
+/// Output columns produced for one train at one time step.
+struct StepRow {
+    position_m: Option<f64>,
+    speed_kmh: Option<f64>,
+    accel_mss: Option<f64>,
+    track_id: Option<String>,
+    element_offset_m: Option<f64>,
+}
+
+/// Advance `state` by `dt_i` seconds, honouring the route end if one is set.
+///
+/// If the train has already reached the end of its route the state is left
+/// unchanged.  If the physics step overshoots the route end, position is
+/// clamped and the train is brought to a halt.
+fn advance_with_route(state: &mut SimulatedState, cfg: &TrainConfig, dt_i: f64) {
+    let at_end = cfg.route.as_ref().map_or(false, |r| state.position.x >= r.total_length_m);
+    if at_end {
+        return;
+    }
+    *state = advance_train(state, &cfg.train, &cfg.driver, &cfg.environment, AdvanceTarget::Time(dt_i));
+    // Clamp to route end if the step overshot.
+    if let Some(route) = &cfg.route {
+        if state.position.x >= route.total_length_m {
+            state.position.x = route.total_length_m;
+            state.speed = 0.0;
+            state.acceleration = 0.0;
+        }
+    }
+}
+
+/// Build a `StepRow` for one train, using the timing trace position when
+/// available and the physics state otherwise.  The network position
+/// (track_id / element_offset_m) is always derived from whichever position
+/// is reported so that the two columns stay consistent with position_m.
+fn make_step_row(cfg: &TrainConfig, state: &SimulatedState, t: f64) -> StepRow {
+    match cfg.timing.as_ref().and_then(|tr| tr.position_at(t)) {
+        Some(pos) => {
+            let net_pos = cfg.route.as_ref().and_then(|r| r.locate(pos));
+            let (track_id, element_offset_m) = match net_pos {
+                Some(np) => (Some(np.track_id), Some(np.offset_m)),
+                None => (None, None),
+            };
+            StepRow { position_m: Some(pos), speed_kmh: None, accel_mss: None, track_id, element_offset_m }
+        }
+        None => {
+            let net_pos = cfg.route.as_ref().and_then(|r| r.locate(state.position.x));
+            let (track_id, element_offset_m) = match net_pos {
+                Some(np) => (Some(np.track_id), Some(np.offset_m)),
+                None => (None, None),
+            };
+            StepRow {
+                position_m: Some(state.position.x),
+                speed_kmh: Some(state.speed * 3.6),
+                accel_mss: Some(state.acceleration),
+                track_id,
+                element_offset_m,
+            }
+        }
+    }
+}
+
 fn run_simulation(
     trains: &[TrainConfig],
     dt: f64,
@@ -456,68 +517,30 @@ fn run_simulation(
 
                 // Each train advances from its last-known time to t (may differ if
                 // random events have advanced individual trains in between).
-                let step_results: Vec<(Option<f64>, Option<f64>, Option<f64>, Option<String>, Option<f64>)> = trains
+                let step_results: Vec<StepRow> = trains
                     .par_iter()
                     .zip(states.par_iter_mut())
                     .zip(last_times.par_iter())
                     .map(|((cfg, state), &lt)| {
                         let dt_i = t - lt;
                         if dt_i > 0.0 {
-                            let at_route_end = cfg
-                                .route
-                                .as_ref()
-                                .map_or(false, |r| state.position.x >= r.total_length_m);
-                            if !at_route_end {
-                                *state = advance_train(
-                                    state,
-                                    &cfg.train,
-                                    &cfg.driver,
-                                    &cfg.environment,
-                                    AdvanceTarget::Time(dt_i),
-                                );
-                                // Clamp to route end if the step overshot.
-                                if let Some(route) = &cfg.route {
-                                    if state.position.x >= route.total_length_m {
-                                        state.position.x = route.total_length_m;
-                                        state.speed = 0.0;
-                                        state.acceleration = 0.0;
-                                    }
-                                }
-                            }
+                            advance_with_route(state, cfg, dt_i);
                         }
-
-                        let net_pos =
-                            cfg.route.as_ref().and_then(|r| r.locate(state.position.x));
-                        let (track_id, element_offset_m) = match net_pos {
-                            Some(np) => (Some(np.track_id), Some(np.offset_m)),
-                            None => (None, None),
-                        };
-
-                        // Timing trace takes priority when it has data; physics is the fallback.
-                        match cfg.timing.as_ref().and_then(|tr| tr.position_at(t)) {
-                            Some(pos) => (Some(pos), None, None, track_id, element_offset_m),
-                            None => (
-                                Some(state.position.x),
-                                Some(state.speed * 3.6),
-                                Some(state.acceleration),
-                                track_id,
-                                element_offset_m,
-                            ),
-                        }
+                        make_step_row(cfg, state, t)
                     })
                     .collect();
 
                 last_times.iter_mut().for_each(|lt| *lt = t);
 
-                for (i, (pos, spd, acc, tid, off)) in step_results.into_iter().enumerate() {
+                for (i, row) in step_results.into_iter().enumerate() {
                     train_id_data.push(train_id_cache[i]);
                     event_kind_data.push("physics_tick");
                     time_s_data.push(t);
-                    position_m_data.push(pos);
-                    speed_kmh_data.push(spd);
-                    accel_mss_data.push(acc);
-                    track_id_data.push(tid);
-                    element_offset_m_data.push(off);
+                    position_m_data.push(row.position_m);
+                    speed_kmh_data.push(row.speed_kmh);
+                    accel_mss_data.push(row.accel_mss);
+                    track_id_data.push(row.track_id);
+                    element_offset_m_data.push(row.element_offset_m);
                 }
 
                 pb.inc(1);
@@ -538,52 +561,17 @@ fn run_simulation(
                         if dt_i > 0.0 {
                             let cfg = &trains[i];
                             let s = &mut states[i];
-
-                            let at_route_end = cfg
-                                .route
-                                .as_ref()
-                                .map_or(false, |r| s.position.x >= r.total_length_m);
-                            if !at_route_end {
-                                *s = advance_train(
-                                    s,
-                                    &cfg.train,
-                                    &cfg.driver,
-                                    &cfg.environment,
-                                    AdvanceTarget::Time(dt_i),
-                                );
-                                if let Some(route) = &cfg.route {
-                                    if s.position.x >= route.total_length_m {
-                                        s.position.x = route.total_length_m;
-                                        s.speed = 0.0;
-                                        s.acceleration = 0.0;
-                                    }
-                                }
-                            }
-
-                            let net_pos = cfg.route.as_ref().and_then(|r| r.locate(s.position.x));
-                            let (track_id, element_offset_m) = match net_pos {
-                                Some(np) => (Some(np.track_id), Some(np.offset_m)),
-                                None => (None, None),
-                            };
-
-                            let (pos, spd, acc) =
-                                match cfg.timing.as_ref().and_then(|tr| tr.position_at(t)) {
-                                    Some(pos) => (Some(pos), None, None),
-                                    None => (
-                                        Some(s.position.x),
-                                        Some(s.speed * 3.6),
-                                        Some(s.acceleration),
-                                    ),
-                                };
+                            advance_with_route(s, cfg, dt_i);
+                            let row = make_step_row(cfg, s, t);
                             last_times[i] = t;
                             train_id_data.push(train_id_cache[i]);
                             event_kind_data.push(kind_str);
                             time_s_data.push(t);
-                            position_m_data.push(pos);
-                            speed_kmh_data.push(spd);
-                            accel_mss_data.push(acc);
-                            track_id_data.push(track_id);
-                            element_offset_m_data.push(element_offset_m);
+                            position_m_data.push(row.position_m);
+                            speed_kmh_data.push(row.speed_kmh);
+                            accel_mss_data.push(row.accel_mss);
+                            track_id_data.push(row.track_id);
+                            element_offset_m_data.push(row.element_offset_m);
                         }
                     }
                 }
