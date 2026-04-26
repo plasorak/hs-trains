@@ -16,19 +16,23 @@ const NS: &str = "https://www.railml.org/schemas/3.3";
 pub fn load_infrastructure(path: &Path) -> Result<Infrastructure, String> {
     let xml = std::fs::read_to_string(path)
         .map_err(|e| format!("cannot read '{}': {e}", path.display()))?;
-    let doc = roxmltree::Document::parse(&xml)
-        .map_err(|e| format!("XML parse error in '{}': {e}", path.display()))?;
+    parse_infrastructure_xml(&xml, &path.display().to_string())
+}
+
+fn parse_infrastructure_xml(xml: &str, label: &str) -> Result<Infrastructure, String> {
+    let doc = roxmltree::Document::parse(xml)
+        .map_err(|e| format!("XML parse error in '{label}': {e}"))?;
 
     let infra_node = doc
         .descendants()
         .find(|n| n.has_tag_name((NS, "infrastructure")))
-        .ok_or_else(|| format!("no <infrastructure> element in '{}'", path.display()))?;
+        .ok_or_else(|| format!("no <infrastructure> element in '{label}'"))?;
 
     // --- NetElements -----------------------------------------------------------
 
     let mut net_elements = HashMap::new();
     for ne in infra_node.descendants().filter(|n| n.has_tag_name((NS, "netElement"))) {
-        let ctx = format!("netElement in '{}'", path.display());
+        let ctx = format!("netElement in '{label}'");
         let id: String = parse_attr(ne, "id", &ctx)?;
         match parse_attr::<f64>(ne, "length", &ctx) {
             Ok(length_m) => {
@@ -44,7 +48,7 @@ pub fn load_infrastructure(path: &Path) -> Result<Infrastructure, String> {
 
     let mut tracks = HashMap::new();
     for track in infra_node.descendants().filter(|n| n.has_tag_name((NS, "track"))) {
-        let ctx = format!("track in '{}'", path.display());
+        let ctx = format!("track in '{label}'");
         let id: String = parse_attr(track, "id", &ctx)?;
         let net_element_id: String = parse_attr(track, "netElementRef", &ctx)?;
         tracks.insert(id.clone(), Track { id, net_element_id });
@@ -60,13 +64,110 @@ pub fn load_infrastructure(path: &Path) -> Result<Infrastructure, String> {
         }
     }
 
-    println!(
-        "Loaded infrastructure from '{}': {} net elements, {} tracks, {} operational points",
-        path.display(),
-        net_elements.len(),
-        tracks.len(),
-        ops.len(),
-    );
-
     Ok(Infrastructure { net_elements, tracks, ops })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NS_DECL: &str = r#"xmlns:rail3="https://www.railml.org/schemas/3.3""#;
+
+    fn xml(body: &str) -> String {
+        format!(r#"<?xml version="1.0"?><rail3:railml {NS_DECL}>{body}</rail3:railml>"#)
+    }
+
+    fn infra(body: &str) -> String {
+        xml(&format!("<rail3:infrastructure>{body}</rail3:infrastructure>"))
+    }
+
+    #[test]
+    fn test_basic_net_elements_and_tracks() {
+        let doc = infra(
+            r#"<rail3:topology>
+                 <rail3:netElements>
+                   <rail3:netElement id="ne_1" length="1000.0"/>
+                   <rail3:netElement id="ne_2" length="500.5"/>
+                 </rail3:netElements>
+               </rail3:topology>
+               <rail3:functionalInfrastructure>
+                 <rail3:tracks>
+                   <rail3:track id="track_A" netElementRef="ne_1"/>
+                   <rail3:track id="track_B" netElementRef="ne_2"/>
+                 </rail3:tracks>
+               </rail3:functionalInfrastructure>"#,
+        );
+        let infra = parse_infrastructure_xml(&doc, "test").unwrap();
+
+        assert_eq!(infra.net_elements.len(), 2);
+        assert!((infra.net_elements["ne_1"].length_m - 1000.0).abs() < 1e-9);
+        assert!((infra.net_elements["ne_2"].length_m - 500.5).abs() < 1e-9);
+
+        assert_eq!(infra.tracks.len(), 2);
+        assert_eq!(infra.tracks["track_A"].net_element_id, "ne_1");
+        assert_eq!(infra.tracks["track_B"].net_element_id, "ne_2");
+    }
+
+    #[test]
+    fn test_operational_points_with_and_without_name() {
+        let doc = infra(
+            r#"<rail3:functionalInfrastructure>
+                 <rail3:operationalPoints>
+                   <rail3:operationalPoint id="OP_A" name="Station Alpha"/>
+                   <rail3:operationalPoint id="OP_B"/>
+                 </rail3:operationalPoints>
+               </rail3:functionalInfrastructure>"#,
+        );
+        let infra = parse_infrastructure_xml(&doc, "test").unwrap();
+
+        assert_eq!(infra.ops.len(), 2);
+        assert_eq!(infra.ops["OP_A"].name.as_deref(), Some("Station Alpha"));
+        assert!(infra.ops["OP_B"].name.is_none());
+    }
+
+    #[test]
+    fn test_net_element_without_length_is_skipped() {
+        let doc = infra(
+            r#"<rail3:topology>
+                 <rail3:netElements>
+                   <rail3:netElement id="ne_good" length="200.0"/>
+                   <rail3:netElement id="ne_bad"/>
+                 </rail3:netElements>
+               </rail3:topology>"#,
+        );
+        let infra = parse_infrastructure_xml(&doc, "test").unwrap();
+        // ne_bad has no @length and must be silently dropped.
+        assert_eq!(infra.net_elements.len(), 1);
+        assert!(infra.net_elements.contains_key("ne_good"));
+    }
+
+    #[test]
+    fn test_missing_infrastructure_element_returns_error() {
+        let doc = xml("<rail3:rollingstock/>");
+        let result = parse_infrastructure_xml(&doc, "test");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("no <infrastructure>"));
+    }
+
+    #[test]
+    fn test_empty_infrastructure_is_valid() {
+        let doc = infra("");
+        let infra = parse_infrastructure_xml(&doc, "test").unwrap();
+        assert!(infra.net_elements.is_empty());
+        assert!(infra.tracks.is_empty());
+        assert!(infra.ops.is_empty());
+    }
+
+    #[test]
+    fn test_track_missing_net_element_ref_returns_error() {
+        let doc = infra(
+            r#"<rail3:functionalInfrastructure>
+                 <rail3:tracks>
+                   <rail3:track id="track_bad"/>
+                 </rail3:tracks>
+               </rail3:functionalInfrastructure>"#,
+        );
+        let result = parse_infrastructure_xml(&doc, "test");
+        assert!(result.is_err());
+    }
 }

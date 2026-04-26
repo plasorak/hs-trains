@@ -33,13 +33,21 @@ pub fn load_routes(
 ) -> Result<HashMap<String, Route>, String> {
     let xml = std::fs::read_to_string(path)
         .map_err(|e| format!("cannot read '{}': {e}", path.display()))?;
-    let doc = roxmltree::Document::parse(&xml)
-        .map_err(|e| format!("XML parse error in '{}': {e}", path.display()))?;
+    parse_routes_xml(&xml, &path.display().to_string(), infra)
+}
+
+fn parse_routes_xml(
+    xml: &str,
+    label: &str,
+    infra: &Infrastructure,
+) -> Result<HashMap<String, Route>, String> {
+    let doc = roxmltree::Document::parse(xml)
+        .map_err(|e| format!("XML parse error in '{label}': {e}"))?;
 
     let tt_node = match doc.descendants().find(|n| n.has_tag_name((NS, "timetable"))) {
         Some(n) => n,
         None => {
-            println!("No <timetable> element in '{}' — no routes loaded", path.display());
+            println!("No <timetable> element in '{label}' — no routes loaded");
             return Ok(HashMap::new());
         }
     };
@@ -303,4 +311,308 @@ pub fn load_routes(
     }
 
     Ok(routes)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::model::{NetElement, Track};
+
+    const NS_DECL: &str = r#"xmlns:rail3="https://www.railml.org/schemas/3.3""#;
+
+    fn wrap(body: &str) -> String {
+        format!(r#"<?xml version="1.0"?><rail3:railml {NS_DECL}>{body}</rail3:railml>"#)
+    }
+
+    /// Build a minimal Infrastructure with a given list of (track_id, ne_id, length_m) triples.
+    fn make_infra(tracks: &[(&str, &str, f64)]) -> Infrastructure {
+        let mut net_elements = HashMap::new();
+        let mut track_map = HashMap::new();
+        for &(tid, nid, len) in tracks {
+            net_elements.insert(
+                nid.to_string(),
+                NetElement { id: nid.to_string(), length_m: len },
+            );
+            track_map.insert(
+                tid.to_string(),
+                Track { id: tid.to_string(), net_element_id: nid.to_string() },
+            );
+        }
+        Infrastructure { net_elements, tracks: track_map, ops: HashMap::new() }
+    }
+
+    // Minimal XML helpers for building timetable documents.
+
+    fn base_itinerary(id: &str, points: &str) -> String {
+        format!(r#"<rail3:baseItinerary id="{id}">{points}</rail3:baseItinerary>"#)
+    }
+
+    fn bip(id: &str, seq: u32, followup: &str) -> String {
+        format!(
+            r#"<rail3:baseItineraryPoint id="{id}" sequenceNumber="{seq}" locationRef="OP_any">
+                 {followup}
+                 <rail3:stop/>
+               </rail3:baseItineraryPoint>"#
+        )
+    }
+
+    fn followup(track_refs: &str) -> String {
+        format!(
+            r#"<rail3:followupSections>
+                 <rail3:followupSection>
+                   <rail3:trackRefs>{track_refs}</rail3:trackRefs>
+                 </rail3:followupSection>
+               </rail3:followupSections>"#
+        )
+    }
+
+    fn track_ref(r: &str, seq: u32) -> String {
+        format!(r#"<rail3:trackRef ref="{r}" sequenceNumber="{seq}"/>"#)
+    }
+
+    fn itinerary(id: &str, ranges: &str) -> String {
+        format!(r#"<rail3:itinerary id="{id}">{ranges}</rail3:itinerary>"#)
+    }
+
+    fn range(base_ref: &str, seq: u32) -> String {
+        format!(r#"<rail3:range baseItineraryRef="{base_ref}" sequenceNumber="{seq}"/>"#)
+    }
+
+    fn range_sliced(base_ref: &str, seq: u32, start: &str, end: &str) -> String {
+        format!(
+            r#"<rail3:range baseItineraryRef="{base_ref}" sequenceNumber="{seq}" start="{start}" end="{end}"/>"#
+        )
+    }
+
+    fn op_train(id: &str, variant_id: &str, iti_ref: &str) -> String {
+        format!(
+            r#"<rail3:operationalTrain id="{id}">
+                 <rail3:operationalTrainVariant id="{variant_id}" itineraryRef="{iti_ref}" validityRef="V1"/>
+               </rail3:operationalTrain>"#
+        )
+    }
+
+    fn full_doc(base_itineraries: &str, itineraries: &str, op_trains: &str) -> String {
+        wrap(&format!(
+            r#"<rail3:timetable>
+                 <rail3:baseItineraries>{base_itineraries}</rail3:baseItineraries>
+                 <rail3:itineraries>{itineraries}</rail3:itineraries>
+                 <rail3:operationalTrains>{op_trains}</rail3:operationalTrains>
+               </rail3:timetable>"#
+        ))
+    }
+
+    #[test]
+    fn test_basic_two_bip_route() {
+        // BIP_A → (track_A, track_B) → BIP_B
+        let bi = base_itinerary(
+            "BIT_1",
+            &format!(
+                "{} {}",
+                bip("BIP_A", 1, &followup(&format!("{} {}", track_ref("track_A", 1), track_ref("track_B", 2)))),
+                bip("BIP_B", 2, ""),
+            ),
+        );
+        let iti = itinerary("ITI_1", &range("BIT_1", 1));
+        let ot = op_train("OT_Express", "OTV_1", "ITI_1");
+        let doc = full_doc(&bi, &iti, &ot);
+
+        let infra = make_infra(&[("track_A", "ne_1", 1000.0), ("track_B", "ne_2", 500.0)]);
+        let routes = parse_routes_xml(&doc, "test", &infra).unwrap();
+
+        let route = routes.get("OT_Express").expect("route not found");
+        assert_eq!(route.elements.len(), 2);
+        assert_eq!(route.elements[0].track_id, "track_A");
+        assert_eq!(route.elements[1].track_id, "track_B");
+        assert!((route.total_length_m - 1500.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_track_ref_order_by_sequence_number() {
+        // track_refs listed in reverse XML order but sequenceNumber is correct.
+        let bi = base_itinerary(
+            "BIT_1",
+            &format!(
+                "{} {}",
+                bip(
+                    "BIP_A", 1,
+                    &followup(&format!(
+                        // Intentionally reversed: seq=2 before seq=1
+                        "{} {}",
+                        track_ref("track_B", 2),
+                        track_ref("track_A", 1),
+                    )),
+                ),
+                bip("BIP_B", 2, ""),
+            ),
+        );
+        let iti = itinerary("ITI_1", &range("BIT_1", 1));
+        let ot = op_train("OT_1", "OTV_1", "ITI_1");
+        let doc = full_doc(&bi, &iti, &ot);
+
+        let infra = make_infra(&[("track_A", "ne_A", 100.0), ("track_B", "ne_B", 200.0)]);
+        let routes = parse_routes_xml(&doc, "test", &infra).unwrap();
+
+        let route = &routes["OT_1"];
+        assert_eq!(route.elements[0].track_id, "track_A"); // seq 1 first
+        assert_eq!(route.elements[1].track_id, "track_B"); // seq 2 second
+    }
+
+    #[test]
+    fn test_bip_range_slicing() {
+        // BaseItinerary has 3 BIPs (A→B→C) but itinerary range only uses A→B.
+        let bi = base_itinerary(
+            "BIT_1",
+            &format!(
+                "{} {} {}",
+                bip("BIP_A", 1, &followup(&track_ref("track_A", 1))),
+                bip("BIP_B", 2, &followup(&track_ref("track_B", 1))),
+                bip("BIP_C", 3, ""),
+            ),
+        );
+        let iti = itinerary("ITI_1", &range_sliced("BIT_1", 1, "BIP_A", "BIP_B"));
+        let ot = op_train("OT_1", "OTV_1", "ITI_1");
+        let doc = full_doc(&bi, &iti, &ot);
+
+        let infra =
+            make_infra(&[("track_A", "ne_A", 100.0), ("track_B", "ne_B", 200.0)]);
+        let routes = parse_routes_xml(&doc, "test", &infra).unwrap();
+
+        let route = &routes["OT_1"];
+        // Only track_A should be in the route; BIP_B→BIP_C track is excluded.
+        assert_eq!(route.elements.len(), 1);
+        assert_eq!(route.elements[0].track_id, "track_A");
+    }
+
+    #[test]
+    fn test_best_priority_followup_section_selected() {
+        // Two followupSections: priority 1 (lower priority) and priority 0 (best).
+        let followups = r#"<rail3:followupSections>
+            <rail3:followupSection priority="1">
+              <rail3:trackRefs>
+                <rail3:trackRef ref="track_alt" sequenceNumber="1"/>
+              </rail3:trackRefs>
+            </rail3:followupSection>
+            <rail3:followupSection priority="0">
+              <rail3:trackRefs>
+                <rail3:trackRef ref="track_best" sequenceNumber="1"/>
+              </rail3:trackRefs>
+            </rail3:followupSection>
+          </rail3:followupSections>"#;
+        let bi = base_itinerary(
+            "BIT_1",
+            &format!(
+                "{} {}",
+                format!(
+                    r#"<rail3:baseItineraryPoint id="BIP_A" sequenceNumber="1" locationRef="OP_any">
+                         {followups}<rail3:stop/></rail3:baseItineraryPoint>"#
+                ),
+                bip("BIP_B", 2, ""),
+            ),
+        );
+        let iti = itinerary("ITI_1", &range("BIT_1", 1));
+        let ot = op_train("OT_1", "OTV_1", "ITI_1");
+        let doc = full_doc(&bi, &iti, &ot);
+
+        let infra = make_infra(&[
+            ("track_best", "ne_best", 100.0),
+            ("track_alt", "ne_alt", 200.0),
+        ]);
+        let routes = parse_routes_xml(&doc, "test", &infra).unwrap();
+
+        let route = &routes["OT_1"];
+        assert_eq!(route.elements[0].track_id, "track_best");
+    }
+
+    #[test]
+    fn test_missing_track_in_infra_skips_gracefully() {
+        let bi = base_itinerary(
+            "BIT_1",
+            &format!(
+                "{} {}",
+                bip("BIP_A", 1, &followup(&format!("{} {}", track_ref("track_good", 1), track_ref("track_missing", 2)))),
+                bip("BIP_B", 2, ""),
+            ),
+        );
+        let iti = itinerary("ITI_1", &range("BIT_1", 1));
+        let ot = op_train("OT_1", "OTV_1", "ITI_1");
+        let doc = full_doc(&bi, &iti, &ot);
+
+        // Only track_good is in the infrastructure.
+        let infra = make_infra(&[("track_good", "ne_good", 300.0)]);
+        let routes = parse_routes_xml(&doc, "test", &infra).unwrap();
+
+        let route = &routes["OT_1"];
+        assert_eq!(route.elements.len(), 1);
+        assert_eq!(route.elements[0].track_id, "track_good");
+    }
+
+    #[test]
+    fn test_no_timetable_section_returns_empty_map() {
+        let doc = wrap("<rail3:infrastructure/>");
+        let infra = make_infra(&[]);
+        let routes = parse_routes_xml(&doc, "test", &infra).unwrap();
+        assert!(routes.is_empty());
+    }
+
+    #[test]
+    fn test_missing_itinerary_ref_skips_train() {
+        // operationalTrainVariant has no @itineraryRef → train skipped, no error.
+        let bi = base_itinerary("BIT_1", &format!("{} {}", bip("BIP_A", 1, ""), bip("BIP_B", 2, "")));
+        let iti = itinerary("ITI_1", &range("BIT_1", 1));
+        let bad_ot = wrap(&format!(
+            r#"<rail3:timetable>
+                 <rail3:baseItineraries>{bi}</rail3:baseItineraries>
+                 <rail3:itineraries>{iti}</rail3:itineraries>
+                 <rail3:operationalTrains>
+                   <rail3:operationalTrain id="OT_bad">
+                     <rail3:operationalTrainVariant id="OTV_1" validityRef="V1"/>
+                   </rail3:operationalTrain>
+                 </rail3:operationalTrains>
+               </rail3:timetable>"#
+        ));
+        let infra = make_infra(&[]);
+        let routes = parse_routes_xml(&bad_ot, "test", &infra).unwrap();
+        assert!(routes.is_empty());
+    }
+
+    #[test]
+    fn test_multi_range_itinerary_concatenates_tracks() {
+        // Two base itineraries, one itinerary with two ranges.
+        let bi1 = base_itinerary(
+            "BIT_1",
+            &format!(
+                "{} {}",
+                bip("BIP_A1", 1, &followup(&track_ref("track_A", 1))),
+                bip("BIP_A2", 2, ""),
+            ),
+        );
+        let bi2 = base_itinerary(
+            "BIT_2",
+            &format!(
+                "{} {}",
+                bip("BIP_B1", 1, &followup(&track_ref("track_B", 1))),
+                bip("BIP_B2", 2, ""),
+            ),
+        );
+        let iti = itinerary(
+            "ITI_1",
+            &format!("{} {}", range("BIT_1", 1), range("BIT_2", 2)),
+        );
+        let ot = op_train("OT_1", "OTV_1", "ITI_1");
+        let doc = full_doc(
+            &format!("{bi1}{bi2}"),
+            &iti,
+            &ot,
+        );
+
+        let infra = make_infra(&[("track_A", "ne_A", 100.0), ("track_B", "ne_B", 200.0)]);
+        let routes = parse_routes_xml(&doc, "test", &infra).unwrap();
+
+        let route = &routes["OT_1"];
+        assert_eq!(route.elements.len(), 2);
+        assert_eq!(route.elements[0].track_id, "track_A");
+        assert_eq!(route.elements[1].track_id, "track_B");
+        assert!((route.total_length_m - 300.0).abs() < 1e-9);
+    }
 }

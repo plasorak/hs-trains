@@ -634,3 +634,193 @@ fn run_simulation(
     });
     println!("Written {total_rows} rows to '{}'", output.display());
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- Config deserialization ----------------------------------------------
+
+    #[test]
+    fn test_config_defaults_no_infrastructure() {
+        let yaml = r#"
+simulation:
+  time_step_s: 0.5
+  duration_s: 100.0
+  trains: []
+"#;
+        let config: Config = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.simulation.time_step_s, 0.5);
+        assert_eq!(config.simulation.duration_s, 100.0);
+        assert!(config.simulation.infrastructure_file.is_none());
+        assert_eq!(config.simulation.flush_rows, 1_000_000);
+    }
+
+    #[test]
+    fn test_config_infrastructure_file_round_trips() {
+        let yaml = r#"
+simulation:
+  time_step_s: 1.0
+  duration_s: 60.0
+  infrastructure_file: network.xml
+  trains: []
+"#;
+        let config: Config = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(
+            config.simulation.infrastructure_file.as_deref(),
+            Some("network.xml")
+        );
+    }
+
+    #[test]
+    fn test_config_timetable_train_id_round_trips() {
+        let yaml = r#"
+simulation:
+  time_step_s: 1.0
+  duration_s: 60.0
+  trains:
+    - id: express
+      kind: railml
+      railml_file: rs.xml
+      formation_id: f1
+      timetable_train_id: OT_Express
+      environment:
+        gradient: 0.0
+        wind_speed: 0.0
+      driver:
+        power_ratio: 0.8
+        brake_ratio: 0.0
+"#;
+        let config: Config = serde_yaml_ng::from_str(yaml).unwrap();
+        let TrainConfigYaml::RailML { timetable_train_id, .. } = &config.simulation.trains[0];
+        assert_eq!(timetable_train_id.as_deref(), Some("OT_Express"));
+    }
+
+    #[test]
+    fn test_config_optional_train_fields_default_to_none() {
+        let yaml = r#"
+simulation:
+  time_step_s: 1.0
+  duration_s: 60.0
+  trains:
+    - id: plain
+      kind: railml
+      railml_file: rs.xml
+      formation_id: f1
+      environment:
+        gradient: 0.0
+        wind_speed: 0.0
+      driver:
+        power_ratio: 1.0
+        brake_ratio: 0.0
+"#;
+        let config: Config = serde_yaml_ng::from_str(yaml).unwrap();
+        let TrainConfigYaml::RailML {
+            timing_file,
+            timing_train_id,
+            timetable_train_id,
+            ..
+        } = &config.simulation.trains[0];
+        assert!(timing_file.is_none());
+        assert!(timing_train_id.is_none());
+        assert!(timetable_train_id.is_none());
+    }
+
+    #[test]
+    fn test_config_flush_rows_explicit() {
+        let yaml = r#"
+simulation:
+  time_step_s: 1.0
+  duration_s: 10.0
+  flush_rows: 500
+  trains: []
+"#;
+        let config: Config = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.simulation.flush_rows, 500);
+    }
+
+    // --- build_batch ---------------------------------------------------------
+
+    #[test]
+    fn test_build_batch_column_names_and_count() {
+        let df = build_batch(
+            &["t1"],
+            &["physics_tick"],
+            &[1.0],
+            &[Some(100.0)],
+            &[Some(50.0)],
+            &[Some(0.5)],
+            &[Some("track_A".to_string())],
+            &[Some(25.0)],
+        );
+
+        assert_eq!(df.height(), 1);
+        assert_eq!(df.width(), 8);
+
+        // get_column_names() returns Vec<&PlSmallStr>; compare via as_str().
+        let names: Vec<&str> = df.get_column_names().into_iter().map(|s| s.as_str()).collect();
+        assert!(names.contains(&"train_id"));
+        assert!(names.contains(&"event_kind"));
+        assert!(names.contains(&"time_s"));
+        assert!(names.contains(&"position_m"));
+        assert!(names.contains(&"speed_kmh"));
+        assert!(names.contains(&"acceleration_mss"));
+        assert!(names.contains(&"track_id"));
+        assert!(names.contains(&"element_offset_m"));
+    }
+
+    #[test]
+    fn test_build_batch_nullable_columns() {
+        // Row 0: routed train — track_id and element_offset_m are populated.
+        // Row 1: unrouted train — both are null.
+        let df = build_batch(
+            &["routed", "free"],
+            &["physics_tick", "physics_tick"],
+            &[1.0, 1.0],
+            &[Some(500.0), Some(200.0)],
+            &[Some(30.0), Some(80.0)],
+            &[Some(0.1), Some(0.2)],
+            &[Some("track_X".to_string()), None],
+            &[Some(50.0), None],
+        );
+
+        // is_null() returns BooleanChunked; use .get(row) to check individual rows.
+        let track_null = df.column("track_id").unwrap().is_null();
+        assert_eq!(track_null.get(0), Some(false)); // routed row has a value
+        assert_eq!(track_null.get(1), Some(true));  // free runner is null
+
+        let offset_null = df.column("element_offset_m").unwrap().is_null();
+        assert_eq!(offset_null.get(0), Some(false));
+        assert_eq!(offset_null.get(1), Some(true));
+    }
+
+    #[test]
+    fn test_build_batch_multiple_rows() {
+        let n = 5_usize;
+        let train_ids: Vec<&str> = vec!["t"; n];
+        let event_kinds: Vec<&str> = vec!["physics_tick"; n];
+        let times: Vec<f64> = (0..n).map(|i| i as f64).collect();
+        let positions: Vec<Option<f64>> = (0..n).map(|i| Some(i as f64 * 10.0)).collect();
+        let speeds: Vec<Option<f64>> = vec![None; n];
+        let accels: Vec<Option<f64>> = vec![None; n];
+        let track_ids: Vec<Option<String>> = vec![None; n];
+        let offsets: Vec<Option<f64>> = vec![None; n];
+
+        let df = build_batch(
+            &train_ids,
+            &event_kinds,
+            &times,
+            &positions,
+            &speeds,
+            &accels,
+            &track_ids,
+            &offsets,
+        );
+
+        assert_eq!(df.height(), n);
+    }
+}
