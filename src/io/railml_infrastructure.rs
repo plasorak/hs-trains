@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 const NS: &str = "https://www.railml.org/schemas/3.3";
+const GML_NS: &str = "http://www.opengis.net/gml/3.2";
 
 /// Parse the `<infrastructure>` section of a RailML 3.3 file.
 ///
@@ -56,10 +57,26 @@ fn parse_infrastructure_xml(xml: &str, label: &str) -> Result<Infrastructure, St
     // --- Tracks ----------------------------------------------------------------
 
     let mut tracks = HashMap::new();
+    let mut track_coords: HashMap<String, Vec<(f64, f64)>> = HashMap::new();
     for track in infra_node.descendants().filter(|n| n.has_tag_name((NS, "track"))) {
         let ctx = format!("track in '{label}'");
         let id: String = parse_attr(track, "id", &ctx)?;
         let net_element_id: String = parse_attr(track, "netElementRef", &ctx)?;
+
+        // Parse optional GML geometry — space-separated "lon lat" pairs in posList.
+        let coords: Vec<(f64, f64)> = track
+            .descendants()
+            .find(|n| n.has_tag_name((GML_NS, "posList")))
+            .and_then(|n| n.text())
+            .map(|text| {
+                let nums: Vec<f64> =
+                    text.split_whitespace().filter_map(|s| s.parse().ok()).collect();
+                nums.chunks(2)
+                    .filter_map(|c| if c.len() == 2 { Some((c[0], c[1])) } else { None })
+                    .collect()
+            })
+            .unwrap_or_default();
+        track_coords.insert(id.clone(), coords);
         tracks.insert(id.clone(), Track { id, net_element_id });
     }
 
@@ -73,7 +90,7 @@ fn parse_infrastructure_xml(xml: &str, label: &str) -> Result<Infrastructure, St
         }
     }
 
-    Ok(Infrastructure { net_elements, tracks, ops })
+    Ok(Infrastructure { net_elements, tracks, ops, track_coords })
 }
 
 #[cfg(test)]
@@ -182,6 +199,32 @@ mod tests {
         assert!(infra.net_elements.is_empty());
         assert!(infra.tracks.is_empty());
         assert!(infra.ops.is_empty());
+    }
+
+    #[test]
+    fn test_gml_coords_parsed() {
+        let doc = infra(
+            r#"<rail3:functionalInfrastructure>
+                 <rail3:tracks>
+                   <rail3:track id="track_geo" netElementRef="ne_1">
+                     <rail3:gmlLocation xmlns:gml="http://www.opengis.net/gml/3.2">
+                       <gml:LineString srsName="urn:ogc:def:crs:EPSG::4326">
+                         <gml:posList>-1.0 53.0 -1.1 53.1 -1.2 53.2</gml:posList>
+                       </gml:LineString>
+                     </rail3:gmlLocation>
+                   </rail3:track>
+                   <rail3:track id="track_no_geo" netElementRef="ne_2"/>
+                 </rail3:tracks>
+               </rail3:functionalInfrastructure>"#,
+        );
+        let infra = parse_infrastructure_xml(&doc, "test").unwrap();
+        let coords = &infra.track_coords["track_geo"];
+        assert_eq!(coords.len(), 3);
+        assert!((coords[0].0 - (-1.0)).abs() < 1e-9); // lon
+        assert!((coords[0].1 - 53.0).abs() < 1e-9);   // lat
+        assert!((coords[2].0 - (-1.2)).abs() < 1e-9);
+        // Track without GML gets empty vec.
+        assert!(infra.track_coords["track_no_geo"].is_empty());
     }
 
     #[test]

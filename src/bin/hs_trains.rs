@@ -1,6 +1,6 @@
 use clap::Parser;
 use hs_trains::core::model::{DriverInput, Environment, Position, Route, SimulatedState, TrainDescription};
-use hs_trains::core::physics::{AdvanceTarget, advance_train};
+use hs_trains::core::physics::{AdvanceTarget, advance_train, traction_power_kw};
 use hs_trains::io::timing::TimingTrace;
 use hs_trains::{core::scheduler, io::railml_rollingstock, io::railml_infrastructure, io::railml_timetable};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -171,6 +171,18 @@ fn main() {
         std::process::exit(1)
     });
 
+    // Build geographic lookup: track_id → (WGS84 coord list, element length in m).
+    // Used by make_step_row to interpolate lon/lat from position along each track.
+    let track_geo: HashMap<String, (Vec<(f64, f64)>, f64)> = infra
+        .tracks
+        .values()
+        .filter_map(|t| {
+            let length_m = infra.net_elements.get(&t.net_element_id)?.length_m;
+            let coords = infra.track_coords.get(&t.id).cloned().unwrap_or_default();
+            Some((t.id.clone(), (coords, length_m)))
+        })
+        .collect();
+
     let trains: Vec<TrainConfig> = sim.trains.into_iter().map(|y| resolve_train(y, &routes)).collect();
     println!(
         "Running simulation: {} train(s), dt={}s, duration={}s, flush every {} rows",
@@ -186,6 +198,7 @@ fn main() {
         sim.duration_s,
         output_path,
         sim.flush_rows,
+        &track_geo,
     );
 }
 
@@ -229,6 +242,9 @@ struct BatchBuffers<'a> {
     accel_mss: Vec<Option<f64>>,
     track_id: Vec<Option<String>>,
     element_offset_m: Vec<Option<f64>>,
+    lon_deg: Vec<Option<f64>>,
+    lat_deg: Vec<Option<f64>>,
+    power_kw: Vec<Option<f64>>,
 }
 
 impl<'a> BatchBuffers<'a> {
@@ -242,6 +258,9 @@ impl<'a> BatchBuffers<'a> {
             accel_mss: Vec::with_capacity(cap),
             track_id: Vec::with_capacity(cap),
             element_offset_m: Vec::with_capacity(cap),
+            lon_deg: Vec::with_capacity(cap),
+            lat_deg: Vec::with_capacity(cap),
+            power_kw: Vec::with_capacity(cap),
         }
     }
 
@@ -262,6 +281,9 @@ impl<'a> BatchBuffers<'a> {
         self.accel_mss.push(row.accel_mss);
         self.track_id.push(row.track_id);
         self.element_offset_m.push(row.element_offset_m);
+        self.lon_deg.push(row.lon_deg);
+        self.lat_deg.push(row.lat_deg);
+        self.power_kw.push(row.power_kw);
     }
 
     fn clear(&mut self) {
@@ -273,6 +295,9 @@ impl<'a> BatchBuffers<'a> {
         self.accel_mss.clear();
         self.track_id.clear();
         self.element_offset_m.clear();
+        self.lon_deg.clear();
+        self.lat_deg.clear();
+        self.power_kw.clear();
     }
 
     fn build_dataframe(&self) -> DataFrame {
@@ -290,6 +315,9 @@ impl<'a> BatchBuffers<'a> {
                 Series::new("acceleration_mss".into(), self.accel_mss.as_slice()).into(),
                 Series::new("track_id".into(), track_id_refs.as_slice()).into(),
                 Series::new("element_offset_m".into(), self.element_offset_m.as_slice()).into(),
+                Series::new("lon_deg".into(), self.lon_deg.as_slice()).into(),
+                Series::new("lat_deg".into(), self.lat_deg.as_slice()).into(),
+                Series::new("power_kw".into(), self.power_kw.as_slice()).into(),
             ],
         )
         .unwrap()
@@ -323,6 +351,9 @@ struct StepRow {
     accel_mss: Option<f64>,
     track_id: Option<String>,
     element_offset_m: Option<f64>,
+    lon_deg: Option<f64>,
+    lat_deg: Option<f64>,
+    power_kw: Option<f64>,
 }
 
 /// Advance `state` by `dt_i` seconds, stopping at the route end.
@@ -342,29 +373,80 @@ fn advance_with_route(state: &mut SimulatedState, cfg: &TrainConfig, dt_i: f64) 
     }
 }
 
+/// Linearly interpolate a (lon, lat) coordinate along a polyline.
+///
+/// `t` is in `[0.0, 1.0]`; 0.0 returns the first vertex, 1.0 returns the last.
+fn interpolate_coord(coords: &[(f64, f64)], t: f64) -> (f64, f64) {
+    let n = coords.len();
+    debug_assert!(n >= 2);
+    let fi = t * (n - 1) as f64;
+    let i = (fi as usize).min(n - 2);
+    let frac = fi - i as f64;
+    let (x0, y0) = coords[i];
+    let (x1, y1) = coords[i + 1];
+    (x0 + frac * (x1 - x0), y0 + frac * (y1 - y0))
+}
+
 /// Build a `StepRow` for one train, using the timing trace position when
 /// available and the physics state otherwise.  The network position
 /// (track_id / element_offset_m) is always derived from whichever position
 /// is reported so that the two columns stay consistent with position_m.
-fn make_step_row(cfg: &TrainConfig, state: &SimulatedState, t: f64) -> StepRow {
+fn make_step_row(
+    cfg: &TrainConfig,
+    state: &SimulatedState,
+    t: f64,
+    track_geo: &HashMap<String, (Vec<(f64, f64)>, f64)>,
+) -> StepRow {
     let locate = |pos: f64| {
         // route.locate() returns None only for empty routes; routes are always
         // non-empty at this point (rejected at load time if empty).
         cfg.route.locate(pos).map(|np| (np.track_id, np.offset_m))
     };
+
+    let geo_coords = |track_id: &Option<String>, offset_m: Option<f64>| -> (Option<f64>, Option<f64>) {
+        let (tid, off) = match (track_id.as_deref(), offset_m) {
+            (Some(tid), Some(off)) => (tid, off),
+            _ => return (None, None),
+        };
+        let (coords, length_m) = match track_geo.get(tid) {
+            Some(v) => v,
+            None => return (None, None),
+        };
+        if coords.len() < 2 || *length_m <= 0.0 {
+            return (None, None);
+        }
+        let t_frac = (off / length_m).clamp(0.0, 1.0);
+        let (lon, lat) = interpolate_coord(coords, t_frac);
+        (Some(lon), Some(lat))
+    };
+
     match cfg.timing.as_ref().and_then(|tr| tr.position_at(t)) {
         Some(pos) => {
             let (track_id, element_offset_m) = locate(pos).unzip();
-            StepRow { position_m: Some(pos), speed_kmh: None, accel_mss: None, track_id, element_offset_m }
+            let (lon_deg, lat_deg) = geo_coords(&track_id, element_offset_m);
+            StepRow {
+                position_m: Some(pos),
+                speed_kmh: None,
+                accel_mss: None,
+                track_id,
+                element_offset_m,
+                lon_deg,
+                lat_deg,
+                power_kw: None,
+            }
         }
         None => {
             let (track_id, element_offset_m) = locate(state.position.x).unzip();
+            let (lon_deg, lat_deg) = geo_coords(&track_id, element_offset_m);
             StepRow {
                 position_m: Some(state.position.x),
                 speed_kmh: Some(state.speed * 3.6),
                 accel_mss: Some(state.acceleration),
                 track_id,
                 element_offset_m,
+                lon_deg,
+                lat_deg,
+                power_kw: Some(traction_power_kw(state.speed, &cfg.train, &cfg.driver)),
             }
         }
     }
@@ -376,6 +458,7 @@ fn run_simulation(
     duration: f64,
     output: &std::path::Path,
     flush_rows: usize,
+    track_geo: &HashMap<String, (Vec<(f64, f64)>, f64)>,
 ) {
     let steps = (duration / dt).round() as usize;
     let buf_cap = flush_rows.min(steps * trains.len());
@@ -395,6 +478,9 @@ fn run_simulation(
         Field::new("acceleration_mss".into(), DataType::Float64),
         Field::new("track_id".into(), DataType::String),
         Field::new("element_offset_m".into(), DataType::Float64),
+        Field::new("lon_deg".into(), DataType::Float64),
+        Field::new("lat_deg".into(), DataType::Float64),
+        Field::new("power_kw".into(), DataType::Float64),
     ]);
 
     let file = std::fs::File::create(output).unwrap_or_else(|e| {
@@ -517,7 +603,7 @@ fn run_simulation(
                         if dt_i > 0.0 {
                             advance_with_route(state, cfg, dt_i);
                         }
-                        make_step_row(cfg, state, t)
+                        make_step_row(cfg, state, t, track_geo)
                     })
                     .collect();
 
@@ -546,7 +632,7 @@ fn run_simulation(
                             let cfg = &trains[i];
                             let s = &mut states[i];
                             advance_with_route(s, cfg, dt_i);
-                            let row = make_step_row(cfg, s, t);
+                            let row = make_step_row(cfg, s, t, track_geo);
                             last_times[i] = t;
                             buf.push(train_id_cache[i], kind_str, t, row);
                         }
@@ -708,6 +794,9 @@ simulation:
             accel_mss: None,
             track_id: track.map(str::to_string),
             element_offset_m: track.map(|_| 0.0),
+            lon_deg: None,
+            lat_deg: None,
+            power_kw: None,
         });
     }
 
@@ -718,7 +807,7 @@ simulation:
         let df = buf.build_dataframe();
 
         assert_eq!(df.height(), 1);
-        assert_eq!(df.width(), 8);
+        assert_eq!(df.width(), 11);
 
         let names: Vec<&str> = df.get_column_names().into_iter().map(|s| s.as_str()).collect();
         assert!(names.contains(&"train_id"));
@@ -729,6 +818,9 @@ simulation:
         assert!(names.contains(&"acceleration_mss"));
         assert!(names.contains(&"track_id"));
         assert!(names.contains(&"element_offset_m"));
+        assert!(names.contains(&"lon_deg"));
+        assert!(names.contains(&"lat_deg"));
+        assert!(names.contains(&"power_kw"));
     }
 
     #[test]
@@ -759,6 +851,9 @@ simulation:
                 accel_mss: None,
                 track_id: None,
                 element_offset_m: None,
+                lon_deg: None,
+                lat_deg: None,
+                power_kw: None,
             });
         }
         assert_eq!(buf.len(), 5);
@@ -785,7 +880,7 @@ simulation:
     }
 
     fn make_route_cfg(length_m: f64) -> TrainConfig {
-        use hs_trains::core::model::{NetElement, RouteElement, Track};
+        use hs_trains::core::model::RouteElement;
         let elements = vec![RouteElement {
             track_id: "track_0".to_string(),
             net_element_id: "ne_0".to_string(),
@@ -841,12 +936,16 @@ simulation:
     fn test_make_step_row_physics_path_populates_speed_and_track() {
         let cfg = make_route_cfg(1000.0);
         let state = make_state(50.0, 20.0); // 20 m/s = 72 km/h
-        let row = make_step_row(&cfg, &state, 0.0);
+        let track_geo = HashMap::new(); // no geometry — lon/lat will be None
+        let row = make_step_row(&cfg, &state, 0.0, &track_geo);
 
         assert!((row.position_m.unwrap() - 50.0).abs() < 1e-9);
         assert!((row.speed_kmh.unwrap() - 72.0).abs() < 1e-6);
         assert!(row.accel_mss.is_some());
         assert_eq!(row.track_id.as_deref(), Some("track_0"));
         assert!((row.element_offset_m.unwrap() - 50.0).abs() < 1e-9);
+        assert!(row.lon_deg.is_none());
+        assert!(row.lat_deg.is_none());
+        assert!(row.power_kw.is_some());
     }
 }

@@ -15,6 +15,7 @@ network-map = "hs_trains.network_map:app"
 make-gtcl-railml = "hs_trains.make_gtcl_railml:main"
 make-ecm1-railml = "hs_trains.make_ecm1_railml:app"
 ecm1-route-map = "hs_trains.ecm1_route_map:app"
+train-cinematic = "hs_trains.train_cinematic:app"
 
 [dependency-groups]
 dev = [

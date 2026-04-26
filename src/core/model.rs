@@ -34,6 +34,9 @@ pub struct Infrastructure {
     /// track id → Track (which carries the net_element_id back-link)
     pub tracks: HashMap<String, Track>,
     pub ops: HashMap<String, OperationalPoint>,
+    /// track id → ordered WGS84 (lon, lat) coordinates from gml:posList.
+    /// Empty vec when the track has no embedded geometry.
+    pub track_coords: HashMap<String, Vec<(f64, f64)>>,
 }
 
 // ---------------------------------------------------------------------------

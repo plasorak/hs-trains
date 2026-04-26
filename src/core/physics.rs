@@ -182,6 +182,25 @@ pub fn advance_train(
     }
 }
 
+/// Instantaneous traction power output in kilowatts.
+///
+/// Returns 0 when braking, stopped, or in the constant-power regime (where the
+/// output equals `train.power * driver.power_ratio / 1000` by definition).
+/// The formula mirrors the traction force logic in `net_force_at_speed` exactly.
+pub fn traction_power_kw(v_ms: f64, train: &TrainDescription, driver: &DriverInput) -> f64 {
+    if driver.brake_ratio > 0.0 || v_ms <= 0.0 {
+        return 0.0;
+    }
+    let low_speed_force = train.traction_force_at_standstill * driver.power_ratio;
+    let high_speed_force = if v_ms > 0.1 {
+        train.power * driver.power_ratio / v_ms
+    } else {
+        low_speed_force
+    };
+    let traction_force = f64::min(low_speed_force, high_speed_force);
+    traction_force * v_ms / 1000.0
+}
+
 pub fn step_trains(
     state: &SimulatedState,
     train: &TrainDescription,

@@ -358,7 +358,7 @@ mod tests {
                 Track { id: tid.to_string(), net_element_id: nid.to_string() },
             );
         }
-        Infrastructure { net_elements, tracks: track_map, ops: HashMap::new() }
+        Infrastructure { net_elements, tracks: track_map, ops: HashMap::new(), track_coords: HashMap::new() }
     }
 
     // Minimal XML helpers for building timetable documents.
