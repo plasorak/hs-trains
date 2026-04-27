@@ -251,6 +251,53 @@ class Border(_InfraBase, tag="border", ns=_NS):
 
 
 # ---------------------------------------------------------------------------
+# Functional infrastructure — signals
+# ---------------------------------------------------------------------------
+
+
+class Signal(_InfraBase, tag="signal", ns=_NS):
+    """A lineside signal.
+
+    TPS ``signal`` elements carry a name and interlocking-system type (2-aspect,
+    3-aspect, 4-aspect colour-light, buffer stop, ground position light, etc.)
+    but no positional data in this export — ``kmRegionID`` is always 0 and the
+    ``directed`` child is empty.  Signals are therefore added as a named
+    catalogue with type designators; their track position will be resolved once
+    the per-ELR chainage alignment with GTCL is in place.
+
+    Designators carried:
+      - NR-Signal-Type   the human-readable interlocking system name
+      - NR-Interlocking  the interlocking system id (numeric string)
+    """
+
+    id: str = attr(name="id", default_factory=_make_id)
+    name: Optional[str] = attr(name="name", default=None)
+    is_bumper: bool = attr(name="isBumper", default=False)
+    designators: list[Designator] = element(tag="designator", ns=_NS, default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Functional infrastructure — operational points (stations / timing points)
+# ---------------------------------------------------------------------------
+
+
+class OperationalPoint(_InfraBase, tag="operationalPoint", ns=_NS):
+    """A named location where trains stop, pass, or are timed.
+
+    In TPS these are ``station`` elements keyed by their TIPLOC abbreviation.
+    We carry three NR designators (TIPLOC, STANOX, CRS) and, when the TPS
+    record has a non-zero easting/northing, a GML Point in WGS84.
+    """
+
+    id: str = attr(name="id", default_factory=_make_id)
+    name: Optional[str] = attr(name="name", default=None)
+    designators: list[Designator] = element(tag="designator", ns=_NS, default_factory=list)
+    gml_locations: list[GmlLocation] = element(
+        tag="gmlLocation", ns=_NS, default_factory=list
+    )
+
+
+# ---------------------------------------------------------------------------
 # Functional infrastructure container
 # ---------------------------------------------------------------------------
 
@@ -263,6 +310,10 @@ class FunctionalInfrastructure(_Base, tag="functionalInfrastructure", ns=_NS):
         tag="bufferStop", ns=_NS, default_factory=list
     )
     borders: list[Border] = element(tag="border", ns=_NS, default_factory=list)
+    signals: list[Signal] = element(tag="signal", ns=_NS, default_factory=list)
+    operational_points: list[OperationalPoint] = element(
+        tag="operationalPoint", ns=_NS, default_factory=list
+    )
 
 
 # ---------------------------------------------------------------------------
