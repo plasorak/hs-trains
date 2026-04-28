@@ -72,7 +72,7 @@ from hs_trains.model.infrastructure import (
 )
 from hs_trains.tps import (
     TPS_XML,
-    _WAYMARKS_SHP,
+    WAYMARKS_SHP,
     build_operational_points,
     build_tps_line_networks,
     build_tps_signals,
@@ -108,8 +108,11 @@ def main() -> None:
         )
     if args.tps and not TPS_XML.exists():
         raise SystemExit(f"TPS XML not found: {TPS_XML}")
-    if args.tps and not _WAYMARKS_SHP.exists():
-        print(f"  [warn] NWR_Waymarks.shp not found at {_WAYMARKS_SHP}; station positions will use raw BNG coords only.")
+    if args.tps and not WAYMARKS_SHP.exists():
+        print(
+            f"  [warn] NWR_Waymarks.shp not found at {WAYMARKS_SHP};"
+            " station positions will use raw BNG coords only."
+        )
 
     # ------------------------------------------------------------------
     # Load layers
@@ -171,8 +174,8 @@ def main() -> None:
         tps = load_tps()
 
         waymark_index = None
-        if _WAYMARKS_SHP.exists():
-            print(f"Building waymark index from {_WAYMARKS_SHP} …")
+        if WAYMARKS_SHP.exists():
+            print(f"Building waymark index from {WAYMARKS_SHP} …")
             waymark_index = build_waymark_index()
             print(f"  {waymark_index.elr_count():,} ELRs indexed")
 

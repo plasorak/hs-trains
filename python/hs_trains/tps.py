@@ -75,7 +75,7 @@ from hs_trains.model.infrastructure import (
 from hs_trains.model.common import Name
 
 TPS_XML = Path(__file__).parents[2] / "assets" / "XML_p.xml"
-_WAYMARKS_SHP = (
+WAYMARKS_SHP = (
     Path(__file__).parents[2]
     / "assets"
     / "NWR_TrackModel20250210 20250306"
@@ -112,7 +112,7 @@ class TpsStation:
     # km_value_m is the distance in metres along that ELR from km=0.
     # Empty string / 0 means absent.
     kmregion_id: str = field(default="")
-    km_value_m: int = field(default=0)
+    km_value_m: float = field(default=0.0)
 
     @property
     def has_coordinates(self) -> bool:
@@ -215,7 +215,7 @@ class WaymarkIndex:
         return len(self._index)
 
 
-def build_waymark_index(shp_path: Path = _WAYMARKS_SHP) -> WaymarkIndex:
+def build_waymark_index(shp_path: Path = WAYMARKS_SHP) -> WaymarkIndex:
     """Load NWR_Waymarks.shp and build an ELR → sorted-arrays lookup.
 
     The VALUE column is in miles (UNIT='M') for almost all ELRs, and in km
@@ -230,6 +230,13 @@ def build_waymark_index(shp_path: Path = _WAYMARKS_SHP) -> WaymarkIndex:
     miles_mask = wm["UNIT"] == "M"
     km_mask = wm["UNIT"] == "K"
     wm = wm.copy()
+    unknown_mask = ~miles_mask & ~km_mask
+    if unknown_mask.any():
+        print(f"  [warn] dropping {unknown_mask.sum()} waymarks with unknown UNIT")
+        wm = wm[~unknown_mask].copy()
+        miles_mask = wm["UNIT"] == "M"
+        km_mask = wm["UNIT"] == "K"
+
     wm["position_m"] = 0.0
     wm.loc[miles_mask, "position_m"] = wm.loc[miles_mask, "VALUE"] * _METRES_PER_MILE
     wm.loc[km_mask, "position_m"] = wm.loc[km_mask, "VALUE"] * _METRES_PER_KM
@@ -277,7 +284,7 @@ def load_tps(xml_path: Path = TPS_XML) -> TpsData:
     # Accumulate stationposition data for the station currently being parsed.
     # This is populated at depth==3 "end" events and consumed at depth==2 "end".
     _pending_kmregion_id: str = ""
-    _pending_km_value_m: int = 0
+    _pending_km_value_m: float = 0.0
 
     for event, elem in iterparse(str(xml_path), events=("start", "end")):
         if event == "start":
@@ -292,7 +299,7 @@ def load_tps(xml_path: Path = TPS_XML) -> TpsData:
                 # Read interesting depth-3 children before clearing.
                 if elem.tag == "stationposition":
                     _pending_kmregion_id = elem.attrib.get("kmregionid", "")
-                    _pending_km_value_m = int(elem.attrib.get("kmvalue", 0) or 0)
+                    _pending_km_value_m = float(elem.attrib.get("kmvalue", 0) or 0)
                 elem.clear()
 
             elif depth == 2:
@@ -410,7 +417,7 @@ def build_operational_points(
         ):
             elr = elr_lookup.get(s.kmregion_id, "")
             if elr:
-                bng = waymark_index.interpolate(elr, float(s.km_value_m))
+                bng = waymark_index.interpolate(elr, s.km_value_m)
 
         if bng is None and s.has_coordinates:
             bng = (float(s.easting_m), float(s.northing_m))

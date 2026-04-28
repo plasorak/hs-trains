@@ -24,6 +24,7 @@ from hs_trains.tps import (
     build_operational_points,
     build_tps_line_networks,
     build_tps_signals,
+    build_waymark_index,
     load_tps,
     load_tps_stations,
 )
@@ -508,6 +509,22 @@ def test_load_station_without_stationposition(tmp_path):
     assert not s.has_chainage
 
 
+def test_load_station_decimal_kmvalue(tmp_path):
+    """A decimal kmvalue string (e.g. '256000.5') must not raise ValueError."""
+    p = _write_xml_with_positions(
+        tmp_path,
+        [
+            (
+                {"stationid": "1", "abbrev": "GLGC", "stanox": "", "crscode": "",
+                 "longname": "Glasgow Central", "easting": "0", "northing": "0"},
+                {"kmregionid": "1271", "kmvalue": "256000.5"},
+            ),
+        ],
+    )
+    stations = load_tps_stations(p)
+    assert stations[0].km_value_m == pytest.approx(256000.5)
+
+
 def test_load_stationposition_does_not_leak_to_next_station(tmp_path):
     """A stationposition from one station must not bleed into the next."""
     p = _write_xml_with_positions(
@@ -541,7 +558,7 @@ def _make_index(elr: str, positions_m: list[float], xs: list[float], ys: list[fl
         easting=np.array(xs, dtype=np.float64),
         northing=np.array(ys, dtype=np.float64),
     )
-    return WaymarkIndex({"ECM1": entry})
+    return WaymarkIndex({elr: entry})
 
 
 def test_waymark_index_known_elr():
@@ -602,6 +619,31 @@ def test_waymark_elr_count():
     )
     idx = WaymarkIndex({"ECM1": e, "WEB": e})
     assert idx.elr_count() == 2
+
+
+def test_build_waymark_index_drops_unknown_unit(tmp_path, capsys):
+    """Waymark rows with a UNIT that is neither 'M' nor 'K' must be dropped with a warning."""
+    import geopandas as gpd
+    from shapely.geometry import Point
+
+    gdf = gpd.GeoDataFrame(
+        {
+            "ELR": ["ECM1", "ECM1", "ECM1"],
+            "VALUE": [0.0, 1.0, 2.0],
+            "UNIT": ["M", "X", "M"],  # "X" is unknown
+        },
+        geometry=[Point(0, 0), Point(1609, 0), Point(3219, 0)],
+        crs="EPSG:27700",
+    )
+    shp = tmp_path / "waymarks.shp"
+    gdf.to_file(str(shp))
+
+    idx = build_waymark_index(shp)
+    captured = capsys.readouterr()
+    assert "dropping 1 waymarks with unknown UNIT" in captured.out
+    # Only the two 'M' rows survive; the 'X' row at VALUE=1.0 is gone.
+    entry = idx._index["ECM1"]
+    assert len(entry.position_m) == 2
 
 
 # ---------------------------------------------------------------------------
