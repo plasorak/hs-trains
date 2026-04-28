@@ -17,13 +17,36 @@ Functional nodes are derived from NWR_GTCL_Nodes:
   - valancy ≥ 5 → ``switchIS``   (complex junction)
   - valancy 2  →  through-node; no functional element generated
 
-Limitations: switch branch types, speed limits, signals, electrification,
-platforms, and gradients are not present in the GTCL and are omitted.
+When ``--tps`` is given, the TPS XML (assets/XML_p.xml) is parsed in a single
+streaming pass and three categories of data are added:
+
+  operationalPoints
+      One per TPS station, carrying NR-TIPLOC, NR-STANOX and NR-CRS
+      designators.  These are the named locations referenced by PPTimetable
+      journeys.  The 27 stations with a non-zero BNG coordinate also receive a
+      GML Point geometry in WGS84.
+
+  networks (TPS lines)
+      263 named operational lines (e.g. "Edinburgh-Inverness") added alongside
+      the ELR-based networks from GTCL.  In this TPS export the route→line
+      link is not populated so these networks carry a NR-TPS-Line designator
+      and name only (no netElementRefs).
+
+  signals
+      70 k signals from the TPS signal catalogue, each carrying a
+      NR-Signal-Type designator (e.g. "4-Aspect Colour Light (IECC)") and the
+      interlocking system id.  Position data is absent in this export;
+      signals are positioned as a named catalogue only and will be placed on
+      track once the per-ELR chainage alignment with GTCL is implemented.
+
+Limitations: speed limits and gradients from TPS edges are not yet linked to
+GTCL segments (requires per-ELR chainage alignment, a separate task).
 
 Usage
 -----
     uv run make-gtcl-railml output.xml
     uv run make-gtcl-railml output.xml --elr ECM1 MML1   # subset of lines
+    uv run make-gtcl-railml output.xml --tps              # add all TPS data
 """
 
 import argparse
@@ -47,6 +70,15 @@ from hs_trains.model.infrastructure import (
     RailML,
     Topology,
 )
+from hs_trains.tps import (
+    TPS_XML,
+    WAYMARKS_SHP,
+    build_operational_points,
+    build_tps_line_networks,
+    build_tps_signals,
+    build_waymark_index,
+    load_tps,
+)
 
 
 def main() -> None:
@@ -61,11 +93,25 @@ def main() -> None:
         help="Only convert segments belonging to these ELRs (e.g. --elr ECM1 MML1)."
         " Omit to convert the entire network (slow, large output).",
     )
+    parser.add_argument(
+        "--tps",
+        action="store_true",
+        help="Parse the TPS XML (single pass) and add: operationalPoints (stations),"
+        " named line networks, and signal catalogue"
+        f" (reads {TPS_XML}; takes ~60 s).",
+    )
     args = parser.parse_args()
 
     if not GPKG.exists():
         raise SystemExit(
             f"GeoPackage not found: {GPKG}\nRun 'uv run network-map' first to verify the asset path."
+        )
+    if args.tps and not TPS_XML.exists():
+        raise SystemExit(f"TPS XML not found: {TPS_XML}")
+    if args.tps and not WAYMARKS_SHP.exists():
+        print(
+            f"  [warn] NWR_Waymarks.shp not found at {WAYMARKS_SHP};"
+            " station positions will use raw BNG coords only."
         )
 
     # ------------------------------------------------------------------
@@ -118,6 +164,34 @@ def main() -> None:
     )
 
     # ------------------------------------------------------------------
+    # Optionally load TPS data (single streaming parse)
+    # ------------------------------------------------------------------
+    operational_points = []
+    tps_line_networks: list = []
+    tps_signals: list = []
+    if args.tps:
+        print(f"Loading TPS data from {TPS_XML} …")
+        tps = load_tps()
+
+        waymark_index = None
+        if WAYMARKS_SHP.exists():
+            print(f"Building waymark index from {WAYMARKS_SHP} …")
+            waymark_index = build_waymark_index()
+            print(f"  {waymark_index.elr_count():,} ELRs indexed")
+
+        operational_points = build_operational_points(
+            tps.stations,
+            elr_lookup=tps.elr_lookup,
+            waymark_index=waymark_index,
+        )
+        tps_line_networks = build_tps_line_networks(tps.lines)
+        tps_signals = build_tps_signals(tps.signals)
+        coords_count = sum(1 for op in operational_points if op.gml_locations)
+        print(f"  {len(operational_points):,} operational points  ({coords_count} with coordinates)")
+        print(f"  {len(tps_line_networks):,} TPS line networks")
+        print(f"  {len(tps_signals):,} signals")
+
+    # ------------------------------------------------------------------
     # Assemble and serialise
     # ------------------------------------------------------------------
     print("Assembling RailML document …")
@@ -126,7 +200,7 @@ def main() -> None:
             topology=Topology(
                 net_elements=net_elements,
                 net_relations=net_relations,
-                networks=networks,
+                networks=networks + tps_line_networks,
             ),
             functional_infrastructure=FunctionalInfrastructure(
                 tracks=tracks,
@@ -134,6 +208,8 @@ def main() -> None:
                 crossings=crossings,
                 buffer_stops=buffer_stops,
                 borders=borders,
+                signals=tps_signals,
+                operational_points=operational_points,
             ),
         )
     )
@@ -150,13 +226,19 @@ def main() -> None:
 
     size_mb = output.stat().st_size / 1_000_000
     print(f"\nWrote {output}  ({size_mb:.1f} MB)")
-    print(f"  netElements  : {len(net_elements):,}")
-    print(f"  netRelations : {len(net_relations):,}")
-    print(f"  networks     : {len(networks):,}  (ELRs)")
-    print(f"  tracks       : {len(tracks):,}")
-    print(f"  switches     : {len(switches):,}")
-    print(f"  crossings    : {len(crossings):,}")
-    print(f"  bufferStops  : {len(buffer_stops):,}")
+    print(f"  netElements       : {len(net_elements):,}")
+    print(f"  netRelations      : {len(net_relations):,}")
+    print(f"  networks          : {len(networks):,}  (ELRs)")
+    print(f"  tracks            : {len(tracks):,}")
+    print(f"  switches          : {len(switches):,}")
+    print(f"  crossings         : {len(crossings):,}")
+    print(f"  bufferStops       : {len(buffer_stops):,}")
+    if tps_line_networks:
+        print(f"  TPS line networks : {len(tps_line_networks):,}")
+    if tps_signals:
+        print(f"  signals           : {len(tps_signals):,}")
+    if operational_points:
+        print(f"  operationalPoints : {len(operational_points):,}")
 
 
 if __name__ == "__main__":
