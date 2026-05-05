@@ -6,16 +6,17 @@
 /// GPUI window showing each train moving along its real geographic track
 /// geometry (British National Grid coordinates projected to screen pixels).
 ///
-/// The Parquet `track_id` column has the form "track_<ASSETID>" which maps
-/// directly to the `ASSETID` column in the GeoPackage `NWR_GTCL` table.
+/// OSM raster tiles are fetched at startup (zoom 9) and cached in the OS
+/// temp directory so subsequent runs are instant.
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
-    App, BorderStyle, Bounds, Context, FocusHandle, Hsla,
-    IntoElement, PathBuilder, Pixels, Render, WeakEntity, Window, WindowBounds,
+    App, BorderStyle, Bounds, Context, Corners, FocusHandle, Hsla,
+    IntoElement, PathBuilder, Pixels, Render, RenderImage, WeakEntity, Window, WindowBounds,
     WindowOptions, canvas, div, point, prelude::*, px, quad, size, transparent_black,
 };
 use gpui_platform::application;
@@ -47,6 +48,12 @@ struct Bbox {
     max_y: f64,
 }
 
+struct TileEntry {
+    /// BNG bounds of this tile (easting/northing min/max).
+    bng_bounds: Bbox,
+    image: Arc<RenderImage>,
+}
+
 struct VisData {
     geometries: HashMap<String, Vec<(f64, f64)>>,
     arc_lengths: HashMap<String, Vec<f64>>,
@@ -54,6 +61,8 @@ struct VisData {
     frames: Vec<SimFrame>,
     bbox: Bbox,
     train_hues: HashMap<String, f32>,
+    tiles: Vec<TileEntry>,
+    start_time: f64,
 }
 
 // ---------------------------------------------------------------------------
@@ -136,6 +145,247 @@ fn interpolate(pts: &[(f64, f64)], lengths: &[f64], offset_m: f64) -> (f64, f64)
         pts[idx].0 + frac * (pts[idx + 1].0 - pts[idx].0),
         pts[idx].1 + frac * (pts[idx + 1].1 - pts[idx].1),
     )
+}
+
+// ---------------------------------------------------------------------------
+// Coordinate transformations: BNG ↔ WGS84
+//
+// Uses OS OSGB36 Transverse Mercator projection (Airy 1830 ellipsoid) plus a
+// simplified 7-parameter Helmert transform between OSGB36 and WGS84.
+// Accuracy is ~5 m, more than enough for raster tile placement.
+// ---------------------------------------------------------------------------
+
+const PI: f64 = std::f64::consts::PI;
+const AIRY_A: f64 = 6_377_563.396;
+const AIRY_B: f64 = 6_356_256.909;
+const GRS80_A: f64 = 6_378_137.0;
+const GRS80_B: f64 = 6_356_752.314_2;
+const BNG_F0: f64 = 0.999_601_271_7;
+const BNG_LAT0: f64 = 49.0 * PI / 180.0;
+const BNG_LON0: f64 = -2.0 * PI / 180.0;
+const BNG_E0: f64 = 400_000.0;
+const BNG_N0: f64 = -100_000.0;
+
+/// Convert BNG (easting, northing) → WGS84 (latitude°, longitude°).
+fn bng_to_wgs84(e: f64, n: f64) -> (f64, f64) {
+    let e2 = 1.0 - (AIRY_B / AIRY_A).powi(2);
+    let nv = (AIRY_A - AIRY_B) / (AIRY_A + AIRY_B);
+    let (nv2, nv3) = (nv * nv, nv * nv * nv);
+
+    // Iterate to find latitude from northing (OS method).
+    let mut lat = (n - BNG_N0) / (AIRY_A * BNG_F0) + BNG_LAT0;
+    loop {
+        let m = AIRY_B * BNG_F0 * (
+            (1.0 + nv + 1.25 * nv2 + 1.25 * nv3) * (lat - BNG_LAT0)
+            - (3.0 * nv + 3.0 * nv2 + 2.625 * nv3) * (lat - BNG_LAT0).sin() * (lat + BNG_LAT0).cos()
+            + (1.875 * nv2 + 1.875 * nv3) * (2.0 * (lat - BNG_LAT0)).sin() * (2.0 * (lat + BNG_LAT0)).cos()
+            - (35.0 / 24.0 * nv3) * (3.0 * (lat - BNG_LAT0)).sin() * (3.0 * (lat + BNG_LAT0)).cos()
+        );
+        let prev = lat;
+        lat += (n - BNG_N0 - m) / (AIRY_A * BNG_F0);
+        if (lat - prev).abs() < 1e-11 { break; }
+    }
+
+    let nu = AIRY_A * BNG_F0 / (1.0 - e2 * lat.sin().powi(2)).sqrt();
+    let rho = AIRY_A * BNG_F0 * (1.0 - e2) / (1.0 - e2 * lat.sin().powi(2)).powf(1.5);
+    let eta2 = nu / rho - 1.0;
+    let tan_l = lat.tan();
+    let de = e - BNG_E0;
+
+    let vii = tan_l / (2.0 * rho * nu);
+    let viii = tan_l / (24.0 * rho * nu.powi(3)) * (5.0 + 3.0 * tan_l.powi(2) + eta2 - 9.0 * tan_l.powi(2) * eta2);
+    let ix = tan_l / (720.0 * rho * nu.powi(5)) * (61.0 + 90.0 * tan_l.powi(2) + 45.0 * tan_l.powi(4));
+    let x_c = 1.0 / (lat.cos() * nu);
+    let xi = 1.0 / (lat.cos() * 6.0 * nu.powi(3)) * (nu / rho + 2.0 * tan_l.powi(2));
+    let xii = 1.0 / (lat.cos() * 120.0 * nu.powi(5)) * (5.0 + 28.0 * tan_l.powi(2) + 24.0 * tan_l.powi(4));
+    let xiia = 1.0 / (lat.cos() * 5040.0 * nu.powi(7)) * (61.0 + 662.0 * tan_l.powi(2) + 1320.0 * tan_l.powi(4) + 720.0 * tan_l.powi(6));
+
+    let lat_o = lat - vii * de.powi(2) + viii * de.powi(4) - ix * de.powi(6);
+    let lon_o = BNG_LON0 + x_c * de - xi * de.powi(3) + xii * de.powi(5) - xiia * de.powi(7);
+
+    // OSGB36 ellipsoidal → Cartesian (Airy 1830).
+    let nu_h = AIRY_A / (1.0 - e2 * lat_o.sin().powi(2)).sqrt();
+    let (xo, yo, zo) = (
+        nu_h * lat_o.cos() * lon_o.cos(),
+        nu_h * lat_o.cos() * lon_o.sin(),
+        nu_h * (1.0 - e2) * lat_o.sin(),
+    );
+
+    // Simplified Helmert OSGB36 → WGS84.
+    let (tx, ty, tz) = (446.448, -125.157, 542.060);
+    let arcsec = PI / (180.0 * 3600.0);
+    let (rx, ry, rz) = (0.1502 * arcsec, 0.2470 * arcsec, 0.8421 * arcsec);
+    let s = 1.0 - 20.4894e-6;
+    let (xw, yw, zw) = (
+        tx + s * (xo - rz * yo + ry * zo),
+        ty + s * (rz * xo + yo - rx * zo),
+        tz + s * (-ry * xo + rx * yo + zo),
+    );
+
+    // WGS84 Cartesian → lat/lon (iterate on ellipsoid).
+    let e2w = 1.0 - (GRS80_B / GRS80_A).powi(2);
+    let p = (xw * xw + yw * yw).sqrt();
+    let mut lat_w = (zw / (p * (1.0 - e2w))).atan();
+    loop {
+        let nu_w = GRS80_A / (1.0 - e2w * lat_w.sin().powi(2)).sqrt();
+        let prev = lat_w;
+        lat_w = ((zw + e2w * nu_w * lat_w.sin()) / p).atan();
+        if (lat_w - prev).abs() < 1e-11 { break; }
+    }
+    (lat_w.to_degrees(), yw.atan2(xw).to_degrees())
+}
+
+/// Convert WGS84 (latitude°, longitude°) → BNG (easting, northing).
+fn wgs84_to_bng(lat_deg: f64, lon_deg: f64) -> (f64, f64) {
+    let (lat, lon) = (lat_deg.to_radians(), lon_deg.to_radians());
+
+    // WGS84 lat/lon → Cartesian (GRS80).
+    let e2w = 1.0 - (GRS80_B / GRS80_A).powi(2);
+    let nu_w = GRS80_A / (1.0 - e2w * lat.sin().powi(2)).sqrt();
+    let (xw, yw, zw) = (
+        nu_w * lat.cos() * lon.cos(),
+        nu_w * lat.cos() * lon.sin(),
+        nu_w * (1.0 - e2w) * lat.sin(),
+    );
+
+    // Reverse Helmert WGS84 → OSGB36.
+    let (tx, ty, tz) = (-446.448, 125.157, -542.060);
+    let arcsec = PI / (180.0 * 3600.0);
+    let (rx, ry, rz) = (-0.1502 * arcsec, -0.2470 * arcsec, -0.8421 * arcsec);
+    let s = 1.0 + 20.4894e-6;
+    let (xo, yo, zo) = (
+        tx + s * (xw - rz * yw + ry * zw),
+        ty + s * (rz * xw + yw - rx * zw),
+        tz + s * (-ry * xw + rx * yw + zw),
+    );
+
+    // OSGB36 Cartesian → lat/lon (Airy 1830, iterate).
+    let e2 = 1.0 - (AIRY_B / AIRY_A).powi(2);
+    let p = (xo * xo + yo * yo).sqrt();
+    let mut lat_o = (zo / (p * (1.0 - e2))).atan();
+    loop {
+        let nu = AIRY_A / (1.0 - e2 * lat_o.sin().powi(2)).sqrt();
+        let prev = lat_o;
+        lat_o = ((zo + e2 * nu * lat_o.sin()) / p).atan();
+        if (lat_o - prev).abs() < 1e-11 { break; }
+    }
+    let lon_o = yo.atan2(xo);
+
+    // OSGB36 lat/lon → BNG (forward TM projection).
+    let nv = (AIRY_A - AIRY_B) / (AIRY_A + AIRY_B);
+    let (nv2, nv3) = (nv * nv, nv * nv * nv);
+    let (sl, cl, tl) = (lat_o.sin(), lat_o.cos(), lat_o.tan());
+    let nu_b = AIRY_A * BNG_F0 / (1.0 - e2 * sl.powi(2)).sqrt();
+    let rho = AIRY_A * BNG_F0 * (1.0 - e2) / (1.0 - e2 * sl.powi(2)).powf(1.5);
+    let eta2 = nu_b / rho - 1.0;
+
+    let m = AIRY_B * BNG_F0 * (
+        (1.0 + nv + 1.25 * nv2 + 1.25 * nv3) * (lat_o - BNG_LAT0)
+        - (3.0 * nv + 3.0 * nv2 + 2.625 * nv3) * (lat_o - BNG_LAT0).sin() * (lat_o + BNG_LAT0).cos()
+        + (1.875 * nv2 + 1.875 * nv3) * (2.0 * (lat_o - BNG_LAT0)).sin() * (2.0 * (lat_o + BNG_LAT0)).cos()
+        - (35.0 / 24.0 * nv3) * (3.0 * (lat_o - BNG_LAT0)).sin() * (3.0 * (lat_o + BNG_LAT0)).cos()
+    );
+    let dl = lon_o - BNG_LON0;
+    let north = BNG_N0 + m + (nu_b / 2.0) * sl * cl * dl.powi(2)
+        + (nu_b / 24.0) * sl * cl.powi(3) * (5.0 - tl.powi(2) + 9.0 * eta2) * dl.powi(4)
+        + (nu_b / 720.0) * sl * cl.powi(5) * (61.0 - 58.0 * tl.powi(2) + tl.powi(4)) * dl.powi(6);
+    let east = BNG_E0 + nu_b * cl * dl
+        + (nu_b / 6.0) * cl.powi(3) * (nu_b / rho - tl.powi(2)) * dl.powi(3)
+        + (nu_b / 120.0) * cl.powi(5) * (5.0 - 18.0 * tl.powi(2) + tl.powi(4) + 14.0 * eta2 - 58.0 * tl.powi(2) * eta2) * dl.powi(5);
+    (east, north)
+}
+
+// ---------------------------------------------------------------------------
+// OSM tile helpers (Web Mercator / EPSG:3857)
+// ---------------------------------------------------------------------------
+
+const TILE_ZOOM: u32 = 9;
+
+/// WGS84 lat/lon → OSM tile (x, y) at the given zoom level.
+fn lat_lon_to_tile(lat: f64, lon: f64, zoom: u32) -> (u32, u32) {
+    let n = 2_f64.powi(zoom as i32);
+    let x = ((lon + 180.0) / 360.0 * n).floor() as u32;
+    let lat_r = lat.to_radians();
+    let y = ((1.0 - (lat_r.tan() + 1.0 / lat_r.cos()).ln() / PI) / 2.0 * n).floor() as u32;
+    (x, y)
+}
+
+/// WGS84 lat/lon of the NW corner of tile (tx, ty) at the given zoom level.
+fn tile_nw_corner(tx: u32, ty: u32, zoom: u32) -> (f64, f64) {
+    let n = 2_f64.powi(zoom as i32);
+    let lon = tx as f64 / n * 360.0 - 180.0;
+    let lat = (PI * (1.0 - 2.0 * ty as f64 / n)).sinh().atan().to_degrees();
+    (lat, lon)
+}
+
+/// Fetch one PNG tile as raw bytes, using a disk cache in the OS temp dir.
+fn fetch_tile_bytes(tx: u32, ty: u32, zoom: u32) -> Option<Vec<u8>> {
+    let cache = std::env::temp_dir()
+        .join("rusty-trains-tiles")
+        .join(zoom.to_string());
+    std::fs::create_dir_all(&cache).ok();
+    let path = cache.join(format!("{tx}_{ty}.png"));
+
+    if let Ok(bytes) = std::fs::read(&path) {
+        return Some(bytes);
+    }
+
+    let url = format!("https://tile.openstreetmap.org/{zoom}/{tx}/{ty}.png");
+    let resp = ureq::get(&url)
+        .set("User-Agent", "rusty-trains-visualizer/0.1 (educational)")
+        .call()
+        .ok()?;
+    if resp.status() != 200 {
+        return None;
+    }
+    let mut buf = Vec::new();
+    resp.into_reader().read_to_end(&mut buf).ok()?;
+    std::fs::write(&path, &buf).ok();
+    Some(buf)
+}
+
+/// Fetch all OSM tiles covering `bbox` (BNG) at `TILE_ZOOM`.
+fn fetch_tiles(bbox: Bbox) -> Vec<TileEntry> {
+    // Expand the bbox slightly so tiles cover the full visible map.
+    let margin = (bbox.max_x - bbox.min_x) * 0.05;
+    let (lat_sw, lon_sw) = bng_to_wgs84(bbox.min_x - margin, bbox.min_y - margin);
+    let (lat_ne, lon_ne) = bng_to_wgs84(bbox.max_x + margin, bbox.max_y + margin);
+
+    // Tile y increases southward (flip vs latitude).
+    let (tx_min, ty_max) = lat_lon_to_tile(lat_sw, lon_sw, TILE_ZOOM);
+    let (tx_max, ty_min) = lat_lon_to_tile(lat_ne, lon_ne, TILE_ZOOM);
+
+    let total = (tx_max - tx_min + 1) * (ty_max - ty_min + 1);
+    eprintln!("  Fetching {total} map tiles (zoom {TILE_ZOOM}, cached in temp dir) …");
+
+    let mut tiles = Vec::new();
+    for ty in ty_min..=ty_max {
+        for tx in tx_min..=tx_max {
+            let Some(bytes) = fetch_tile_bytes(tx, ty, TILE_ZOOM) else { continue };
+            let Ok(img) = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png) else { continue };
+            let rgba = img.into_rgba8();
+            let frame = image::Frame::new(rgba);
+            let render_img = Arc::new(RenderImage::new(vec![frame]));
+
+            // Compute this tile's BNG bounds from its WGS84 corners.
+            let (lat_nw, lon_nw) = tile_nw_corner(tx, ty, TILE_ZOOM);
+            let (lat_se, lon_se) = tile_nw_corner(tx + 1, ty + 1, TILE_ZOOM);
+            let (e_nw, n_nw) = wgs84_to_bng(lat_nw, lon_nw);
+            let (e_se, n_se) = wgs84_to_bng(lat_se, lon_se);
+
+            tiles.push(TileEntry {
+                bng_bounds: Bbox {
+                    min_x: e_nw.min(e_se),
+                    min_y: n_nw.min(n_se),
+                    max_x: e_nw.max(e_se),
+                    max_y: n_nw.max(n_se),
+                },
+                image: render_img,
+            });
+        }
+    }
+    eprintln!("  {} tiles ready", tiles.len());
+    tiles
 }
 
 // ---------------------------------------------------------------------------
@@ -246,17 +496,13 @@ fn bng_to_screen(bx: f64, by: f64, bbox: Bbox, bounds: Bounds<Pixels>) -> (f32, 
     let bng_w = (bbox.max_x - bbox.min_x) as f32;
     let bng_h = (bbox.max_y - bbox.min_y) as f32;
     let scale = (w / bng_w).min(h / bng_h);
-    // Centre the map within the available area.
     let map_w = bng_w * scale;
     let map_h = bng_h * scale;
     let off_x = (w - map_w) * 0.5 + margin;
     let off_y = (h - map_h) * 0.5 + margin;
     let sx = off_x + (bx - bbox.min_x) as f32 * scale;
     let sy = off_y + (bbox.max_y - by) as f32 * scale; // flip Y
-    (
-        bounds.origin.x.as_f32() + sx,
-        bounds.origin.y.as_f32() + sy,
-    )
+    (bounds.origin.x.as_f32() + sx, bounds.origin.y.as_f32() + sy)
 }
 
 // ---------------------------------------------------------------------------
@@ -294,9 +540,9 @@ fn paint_circle(cx: f32, cy: f32, r: f32, color: Hsla, window: &mut Window) {
             origin: point(px(cx - r), px(cy - r)),
             size: size(px(r * 2.0), px(r * 2.0)),
         },
-        px(r),           // corner_radii → Corners<Pixels>
-        color,           // background
-        0.0_f32,         // border_widths → Edges<Pixels>
+        px(r),
+        color,
+        0.0_f32,
         transparent_black(),
         BorderStyle::default(),
     ));
@@ -340,10 +586,22 @@ impl Render for TrainViz {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let data = self.data.clone();
         let frame_idx = self.frame_idx;
-        let time_s = data.frames.get(frame_idx).map(|f| f.time_s).unwrap_or(0.0);
-        let time_label = format!("t = {:.0} s  ({:.1} min)", time_s, time_s / 60.0);
+        let time_s = data.frames.get(frame_idx).map(|f| f.time_s).unwrap_or(data.start_time);
+        let elapsed = time_s - data.start_time;
         let n_frames = data.frames.len();
         let playing = self.playing;
+
+        // Absolute simulation time (hh:mm:ss).
+        let abs_h = (time_s / 3600.0) as u32;
+        let abs_m = ((time_s % 3600.0) / 60.0) as u32;
+        let abs_s = (time_s % 60.0) as u32;
+        let time_label = format!("t = {:02}:{:02}:{:02}", abs_h, abs_m, abs_s);
+
+        // Elapsed since simulation start.
+        let el_h = (elapsed / 3600.0) as u32;
+        let el_m = ((elapsed % 3600.0) / 60.0) as u32;
+        let el_s = (elapsed % 60.0) as u32;
+        let elapsed_label = format!("+{:02}:{:02}:{:02} elapsed", el_h, el_m, el_s);
 
         div()
             .relative()
@@ -369,14 +627,31 @@ impl Render for TrainViz {
                 canvas(
                     |_bounds, _window, _cx| {},
                     move |bounds, (), window, _cx| {
-                        let track_color = Hsla { h: 0.0, s: 0.0, l: 0.28, a: 1.0 };
+                        // Draw map tiles (background).
+                        for tile in &data.tiles {
+                            let (sx0, sy0) = bng_to_screen(
+                                tile.bng_bounds.min_x, tile.bng_bounds.max_y, data.bbox, bounds,
+                            );
+                            let (sx1, sy1) = bng_to_screen(
+                                tile.bng_bounds.max_x, tile.bng_bounds.min_y, data.bbox, bounds,
+                            );
+                            let tile_bounds = Bounds {
+                                origin: point(px(sx0), px(sy0)),
+                                size: size(px((sx1 - sx0).abs()), px((sy1 - sy0).abs())),
+                            };
+                            window
+                                .paint_image(tile_bounds, Corners::all(px(0.0)), tile.image.clone(), 0, false)
+                                .ok();
+                        }
+
+                        let track_color = Hsla { h: 0.17, s: 1.0, l: 0.55, a: 0.9 };
 
                         // Draw all route track polylines.
                         for poly in &data.route_polylines {
                             for w in poly.windows(2) {
                                 let (x0, y0) = bng_to_screen(w[0].0, w[0].1, data.bbox, bounds);
                                 let (x1, y1) = bng_to_screen(w[1].0, w[1].1, data.bbox, bounds);
-                                paint_segment(x0, y0, x1, y1, 2.0, track_color, window);
+                                paint_segment(x0, y0, x1, y1, 2.5, track_color, window);
                             }
                         }
 
@@ -397,29 +672,38 @@ impl Render for TrainViz {
                 )
                 .size_full(),
             )
-            // Time / status overlay.
+            // HUD overlay (top-left).
             .child(
                 div()
                     .absolute()
                     .top(px(10.0))
                     .left(px(14.0))
-                    .text_color(gpui::white())
-                    .text_size(px(14.0))
-                    .child(time_label),
-            )
-            .child(
-                div()
-                    .absolute()
-                    .top(px(30.0))
-                    .left(px(14.0))
-                    .text_color(Hsla { h: 0.0, s: 0.0, l: 0.55, a: 1.0 })
-                    .text_size(px(11.0))
-                    .child(format!(
-                        "frame {}/{} | {} | Space pause · ← → skip",
-                        frame_idx + 1,
-                        n_frames,
-                        if playing { "▶ playing" } else { "⏸ paused" },
-                    )),
+                    .flex()
+                    .flex_col()
+                    .gap(px(2.0))
+                    .child(
+                        div()
+                            .text_color(gpui::white())
+                            .text_size(px(15.0))
+                            .child(time_label),
+                    )
+                    .child(
+                        div()
+                            .text_color(Hsla { h: 0.55, s: 0.7, l: 0.75, a: 1.0 })
+                            .text_size(px(13.0))
+                            .child(elapsed_label),
+                    )
+                    .child(
+                        div()
+                            .text_color(Hsla { h: 0.0, s: 0.0, l: 0.55, a: 1.0 })
+                            .text_size(px(11.0))
+                            .child(format!(
+                                "frame {}/{} | {} | Space pause · ← → skip",
+                                frame_idx + 1,
+                                n_frames,
+                                if playing { "▶ playing" } else { "⏸ paused" },
+                            )),
+                    ),
             )
     }
 }
@@ -459,6 +743,9 @@ fn main() {
         bbox.min_x, bbox.min_y, bbox.max_x, bbox.max_y,
     );
 
+    eprintln!("Loading map tiles …");
+    let tiles = fetch_tiles(bbox);
+
     let train_ids: Vec<String> = {
         let mut seen = std::collections::HashSet::new();
         frames
@@ -473,6 +760,8 @@ fn main() {
         .map(|(i, id)| (id.clone(), i as f32 / train_ids.len().max(1) as f32))
         .collect();
 
+    let start_time = frames.first().map(|f| f.time_s).unwrap_or(0.0);
+
     let data = Arc::new(VisData {
         geometries,
         arc_lengths: arc_lengths_map,
@@ -480,6 +769,8 @@ fn main() {
         frames,
         bbox,
         train_hues,
+        tiles,
+        start_time,
     });
 
     application().run(move |cx: &mut App| {

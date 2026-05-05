@@ -22,5 +22,7 @@ rayon        = "1"
 rand         = "0.8"
 roxmltree    = "0.20"
 rusqlite     = "0.31"
+ureq         = "2"
+image        = { version = "0.25", features = ["png"] }
 gpui         = { git = "https://github.com/zed-industries/zed" }
 gpui_platform = { git = "https://github.com/zed-industries/zed" }
