@@ -48,10 +48,21 @@ struct Bbox {
     max_y: f64,
 }
 
-struct TileEntry {
-    /// BNG bounds of this tile (easting/northing min/max).
-    bng_bounds: Bbox,
-    image: Arc<RenderImage>,
+/// Tile grid laid out in uniform screen-space cells.
+///
+/// Rather than computing each tile's BNG bbox independently (which causes gaps
+/// because constant-longitude lines have slightly varying easting in TM), we
+/// record the overall grid corners once and divide the projected rectangle
+/// evenly at render time. Adjacent tiles then share exact screen boundaries.
+struct TileGrid {
+    /// Row-major storage: `rows[row][col]`, where row 0 is the northernmost.
+    rows: Vec<Vec<Option<Arc<RenderImage>>>>,
+    n_rows: u32,
+    n_cols: u32,
+    /// BNG (easting, northing) of the NW corner of the entire grid.
+    nw: (f64, f64),
+    /// BNG (easting, northing) of the SE corner of the entire grid.
+    se: (f64, f64),
 }
 
 struct VisData {
@@ -61,7 +72,7 @@ struct VisData {
     frames: Vec<SimFrame>,
     bbox: Bbox,
     train_hues: HashMap<String, f32>,
-    tiles: Vec<TileEntry>,
+    tile_grid: TileGrid,
     start_time: f64,
 }
 
@@ -344,8 +355,13 @@ fn fetch_tile_bytes(tx: u32, ty: u32, zoom: u32) -> Option<Vec<u8>> {
     Some(buf)
 }
 
-/// Fetch all OSM tiles covering `bbox` (BNG) at `TILE_ZOOM`.
-fn fetch_tiles(bbox: Bbox) -> Vec<TileEntry> {
+/// Fetch all OSM tiles covering `bbox` (BNG) at `TILE_ZOOM` and return a
+/// `TileGrid` with a uniform screen-space layout.
+///
+/// Each tile's screen position is derived by dividing the overall grid's
+/// projected BNG rectangle evenly. This guarantees zero gaps between adjacent
+/// tiles regardless of projection distortion.
+fn fetch_tiles(bbox: Bbox) -> TileGrid {
     // Expand the bbox slightly so tiles cover the full visible map.
     let margin = (bbox.max_x - bbox.min_x) * 0.05;
     let (lat_sw, lon_sw) = bng_to_wgs84(bbox.min_x - margin, bbox.min_y - margin);
@@ -354,38 +370,39 @@ fn fetch_tiles(bbox: Bbox) -> Vec<TileEntry> {
     // Tile y increases southward (flip vs latitude).
     let (tx_min, ty_max) = lat_lon_to_tile(lat_sw, lon_sw, TILE_ZOOM);
     let (tx_max, ty_min) = lat_lon_to_tile(lat_ne, lon_ne, TILE_ZOOM);
+    let n_cols = tx_max - tx_min + 1;
+    let n_rows = ty_max - ty_min + 1;
 
-    let total = (tx_max - tx_min + 1) * (ty_max - ty_min + 1);
+    let total = n_cols * n_rows;
     eprintln!("  Fetching {total} map tiles (zoom {TILE_ZOOM}, cached in temp dir) …");
 
-    let mut tiles = Vec::new();
+    // Pre-allocate the row-major grid with None cells.
+    let mut rows: Vec<Vec<Option<Arc<RenderImage>>>> =
+        (0..n_rows).map(|_| vec![None; n_cols as usize]).collect();
+
     for ty in ty_min..=ty_max {
         for tx in tx_min..=tx_max {
             let Some(bytes) = fetch_tile_bytes(tx, ty, TILE_ZOOM) else { continue };
             let Ok(img) = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png) else { continue };
-            let rgba = img.into_rgba8();
-            let frame = image::Frame::new(rgba);
+            let frame = image::Frame::new(img.into_rgba8());
             let render_img = Arc::new(RenderImage::new(vec![frame]));
-
-            // Compute this tile's BNG bounds from its WGS84 corners.
-            let (lat_nw, lon_nw) = tile_nw_corner(tx, ty, TILE_ZOOM);
-            let (lat_se, lon_se) = tile_nw_corner(tx + 1, ty + 1, TILE_ZOOM);
-            let (e_nw, n_nw) = wgs84_to_bng(lat_nw, lon_nw);
-            let (e_se, n_se) = wgs84_to_bng(lat_se, lon_se);
-
-            tiles.push(TileEntry {
-                bng_bounds: Bbox {
-                    min_x: e_nw.min(e_se),
-                    min_y: n_nw.min(n_se),
-                    max_x: e_nw.max(e_se),
-                    max_y: n_nw.max(n_se),
-                },
-                image: render_img,
-            });
+            let row = (ty - ty_min) as usize;
+            let col = (tx - tx_min) as usize;
+            rows[row][col] = Some(render_img);
         }
     }
-    eprintln!("  {} tiles ready", tiles.len());
-    tiles
+
+    // BNG coords of the overall grid corners: NW = top-left tile's NW corner,
+    // SE = bottom-right tile's SE corner.  Using a single consistent pair of
+    // reference points means tiles are placed in a perfectly flush uniform grid.
+    let (lat_grid_nw, lon_grid_nw) = tile_nw_corner(tx_min, ty_min, TILE_ZOOM);
+    let (lat_grid_se, lon_grid_se) = tile_nw_corner(tx_max + 1, ty_max + 1, TILE_ZOOM);
+    let nw = wgs84_to_bng(lat_grid_nw, lon_grid_nw);
+    let se = wgs84_to_bng(lat_grid_se, lon_grid_se);
+
+    let loaded = rows.iter().flatten().filter(|c| c.is_some()).count();
+    eprintln!("  {loaded}/{total} tiles ready");
+    TileGrid { rows, n_rows, n_cols, nw, se }
 }
 
 // ---------------------------------------------------------------------------
@@ -627,21 +644,31 @@ impl Render for TrainViz {
                 canvas(
                     |_bounds, _window, _cx| {},
                     move |bounds, (), window, _cx| {
-                        // Draw map tiles (background).
-                        for tile in &data.tiles {
-                            let (sx0, sy0) = bng_to_screen(
-                                tile.bng_bounds.min_x, tile.bng_bounds.max_y, data.bbox, bounds,
-                            );
-                            let (sx1, sy1) = bng_to_screen(
-                                tile.bng_bounds.max_x, tile.bng_bounds.min_y, data.bbox, bounds,
-                            );
-                            let tile_bounds = Bounds {
-                                origin: point(px(sx0), px(sy0)),
-                                size: size(px((sx1 - sx0).abs()), px((sy1 - sy0).abs())),
-                            };
-                            window
-                                .paint_image(tile_bounds, Corners::all(px(0.0)), tile.image.clone(), 0, false)
-                                .ok();
+                        // Draw map tiles (background) as a uniform grid.
+                        // The overall grid is projected to screen once; each
+                        // cell is an equal share of that rectangle, so adjacent
+                        // tiles share exact boundaries with zero gaps.
+                        {
+                            let tg = &data.tile_grid;
+                            let (gx0, gy0) = bng_to_screen(tg.nw.0, tg.nw.1, data.bbox, bounds);
+                            let (gx1, gy1) = bng_to_screen(tg.se.0, tg.se.1, data.bbox, bounds);
+                            let tw = (gx1 - gx0) / tg.n_cols as f32;
+                            let th = (gy1 - gy0) / tg.n_rows as f32;
+                            for (row_idx, row) in tg.rows.iter().enumerate() {
+                                for (col_idx, cell) in row.iter().enumerate() {
+                                    let Some(img) = cell else { continue };
+                                    let tile_bounds = Bounds {
+                                        origin: point(
+                                            px(gx0 + col_idx as f32 * tw),
+                                            px(gy0 + row_idx as f32 * th),
+                                        ),
+                                        size: size(px(tw), px(th)),
+                                    };
+                                    window
+                                        .paint_image(tile_bounds, Corners::all(px(0.0)), img.clone(), 0, false)
+                                        .ok();
+                                }
+                            }
                         }
 
                         let track_color = Hsla { h: 0.17, s: 1.0, l: 0.55, a: 0.9 };
@@ -769,7 +796,7 @@ fn main() {
         frames,
         bbox,
         train_hues,
-        tiles,
+        tile_grid: tiles,
         start_time,
     });
 
