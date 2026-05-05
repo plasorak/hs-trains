@@ -14,7 +14,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
-    App, BorderStyle, Bounds, Context, Entity, FocusHandle, Hsla,
+    App, BorderStyle, Bounds, Context, FocusHandle, Hsla,
     IntoElement, PathBuilder, Pixels, Render, WeakEntity, Window, WindowBounds,
     WindowOptions, canvas, div, point, prelude::*, px, quad, size, transparent_black,
 };
@@ -483,11 +483,9 @@ fn main() {
     });
 
     application().run(move |cx: &mut App| {
+        let bounds = Bounds::centered(None, size(px(1200.0), px(800.0)), cx);
         let options = WindowOptions {
-            window_bounds: Some(WindowBounds::Windowed(Bounds {
-                origin: point(px(100.0), px(100.0)),
-                size: size(px(1200.0), px(800.0)),
-            })),
+            window_bounds: Some(WindowBounds::Windowed(bounds)),
             titlebar: Some(gpui::TitlebarOptions {
                 title: Some("Rusty Trains Visualizer".into()),
                 appears_transparent: false,
@@ -505,5 +503,6 @@ fn main() {
             entity
         })
         .unwrap();
+        cx.activate(true);
     });
 }
