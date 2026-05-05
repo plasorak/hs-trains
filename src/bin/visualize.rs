@@ -671,14 +671,17 @@ impl Render for TrainViz {
                             }
                         }
 
-                        let track_color = Hsla { h: 0.17, s: 1.0, l: 0.55, a: 0.9 };
+                        let track_inner = Hsla { h: 0.08, s: 0.95, l: 0.65, a: 1.0 };
+                        let track_outer = Hsla { h: 0.0, s: 0.0, l: 0.08, a: 0.85 };
 
-                        // Draw all route track polylines.
+                        // Draw all route track polylines with an outline for
+                        // contrast against any map tile background.
                         for poly in &data.route_polylines {
                             for w in poly.windows(2) {
                                 let (x0, y0) = bng_to_screen(w[0].0, w[0].1, data.bbox, bounds);
                                 let (x1, y1) = bng_to_screen(w[1].0, w[1].1, data.bbox, bounds);
-                                paint_segment(x0, y0, x1, y1, 2.5, track_color, window);
+                                paint_segment(x0, y0, x1, y1, 4.5, track_outer, window);
+                                paint_segment(x0, y0, x1, y1, 2.5, track_inner, window);
                             }
                         }
 
@@ -699,7 +702,8 @@ impl Render for TrainViz {
                 )
                 .size_full(),
             )
-            // HUD overlay (top-left).
+            // HUD overlay (top-left) — dark translucent pill so text is
+            // readable over any map tile background.
             .child(
                 div()
                     .absolute()
@@ -707,28 +711,31 @@ impl Render for TrainViz {
                     .left(px(14.0))
                     .flex()
                     .flex_col()
-                    .gap(px(2.0))
+                    .gap(px(3.0))
+                    .p(px(10.0))
+                    .rounded(px(8.0))
+                    .bg(Hsla { h: 0.0, s: 0.0, l: 0.0, a: 0.62 })
                     .child(
                         div()
                             .text_color(gpui::white())
-                            .text_size(px(15.0))
+                            .text_size(px(17.0))
                             .child(time_label),
                     )
                     .child(
                         div()
-                            .text_color(Hsla { h: 0.55, s: 0.7, l: 0.75, a: 1.0 })
-                            .text_size(px(13.0))
+                            .text_color(Hsla { h: 0.13, s: 1.0, l: 0.70, a: 1.0 })
+                            .text_size(px(15.0))
                             .child(elapsed_label),
                     )
                     .child(
                         div()
-                            .text_color(Hsla { h: 0.0, s: 0.0, l: 0.55, a: 1.0 })
+                            .text_color(Hsla { h: 0.0, s: 0.0, l: 0.60, a: 1.0 })
                             .text_size(px(11.0))
                             .child(format!(
-                                "frame {}/{} | {} | Space pause · ← → skip",
+                                "frame {}/{} | {} | Space  ←→ skip",
                                 frame_idx + 1,
                                 n_frames,
-                                if playing { "▶ playing" } else { "⏸ paused" },
+                                if playing { "▶" } else { "⏸" },
                             )),
                     ),
             )
