@@ -15,9 +15,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
-    App, BorderStyle, Bounds, Context, Corners, FocusHandle, Hsla,
+    App, Bounds, Context, Corners, FocusHandle, Hsla,
     IntoElement, PathBuilder, Pixels, Render, RenderImage, WeakEntity, Window, WindowBounds,
-    WindowOptions, canvas, div, point, prelude::*, px, quad, size, transparent_black,
+    WindowOptions, canvas, div, point, prelude::*, px, size,
 };
 use gpui_platform::application;
 use polars::prelude::*;
@@ -108,11 +108,17 @@ fn parse_wkb_linestring(wkb: &[u8]) -> Option<Vec<(f64, f64)>> {
         return None;
     }
     let geom_type = u32::from_le_bytes(wkb[1..5].try_into().ok()?);
-    // Accept plain/Z/M/ZM variants: type % 1000 == 2.
-    let coord_size = if geom_type >= 1000 { 24 } else { 16 };
+    // Accept XY / XYZ / XYM / XYZM variants; type % 1000 == 2 means LineString.
     if geom_type % 1000 != 2 {
         return None;
     }
+    // Bytes per coordinate point: XY=16, XYZ or XYM=24, XYZM=32.
+    let coord_size: usize = match geom_type / 1000 {
+        0 => 16,
+        1 | 2 => 24,
+        3 => 32,
+        _ => return None,
+    };
     let n = u32::from_le_bytes(wkb[5..9].try_into().ok()?) as usize;
     if wkb.len() < 9 + n * coord_size {
         return None;
@@ -489,6 +495,11 @@ fn compute_bbox(polys: &[Vec<(f64, f64)>]) -> Bbox {
     let (mut max_x, mut max_y) = (f64::MIN, f64::MIN);
     for poly in polys {
         for &(x, y) in poly {
+            // Discard coordinates outside valid UK BNG bounds — guards against
+            // garbage values produced by malformed WKB (e.g. wrong coord_size).
+            if !(0.0..=700_000.0).contains(&x) || !(0.0..=1_300_000.0).contains(&y) {
+                continue;
+            }
             min_x = min_x.min(x);
             min_y = min_y.min(y);
             max_x = max_x.max(x);
@@ -550,19 +561,24 @@ fn paint_segment(
     }
 }
 
-/// Draw a filled circle via `quad` with full corner rounding.
+/// Draw a filled circle as a path polygon.
+///
+/// Using PathBuilder (not paint_quad) keeps train dots in the same primitive
+/// type as track lines. Within a canvas paint closure GPUI renders all Paths
+/// in insertion order, so dots drawn after tracks appear on top of them.
+/// paint_quad produces Quad primitives which GPUI renders *before* Paths,
+/// which would put train dots behind track lines.
 fn paint_circle(cx: f32, cy: f32, r: f32, color: Hsla, window: &mut Window) {
-    window.paint_quad(quad(
-        Bounds {
-            origin: point(px(cx - r), px(cy - r)),
-            size: size(px(r * 2.0), px(r * 2.0)),
-        },
-        px(r),
-        color,
-        0.0_f32,
-        transparent_black(),
-        BorderStyle::default(),
-    ));
+    const SEGS: usize = 20;
+    let mut builder = PathBuilder::fill();
+    builder.move_to(point(px(cx + r), px(cy)));
+    for i in 1..=SEGS {
+        let a = 2.0 * std::f32::consts::PI * i as f32 / SEGS as f32;
+        builder.line_to(point(px(cx + r * a.cos()), px(cy + r * a.sin())));
+    }
+    if let Ok(path) = builder.build() {
+        window.paint_path(path, color);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -601,20 +617,19 @@ impl TrainViz {
 
 impl Render for TrainViz {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let data = self.data.clone();
+        let data_tiles = self.data.clone();
+        let data_draw = self.data.clone();
         let frame_idx = self.frame_idx;
-        let time_s = data.frames.get(frame_idx).map(|f| f.time_s).unwrap_or(data.start_time);
-        let elapsed = time_s - data.start_time;
-        let n_frames = data.frames.len();
+        let time_s = self.data.frames.get(frame_idx).map(|f| f.time_s).unwrap_or(self.data.start_time);
+        let elapsed = time_s - self.data.start_time;
+        let n_frames = self.data.frames.len();
         let playing = self.playing;
 
-        // Absolute simulation time (hh:mm:ss).
         let abs_h = (time_s / 3600.0) as u32;
         let abs_m = ((time_s % 3600.0) / 60.0) as u32;
         let abs_s = (time_s % 60.0) as u32;
         let time_label = format!("t = {:02}:{:02}:{:02}", abs_h, abs_m, abs_s);
 
-        // Elapsed since simulation start.
         let el_h = (elapsed / 3600.0) as u32;
         let el_m = ((elapsed % 3600.0) / 60.0) as u32;
         let el_s = (elapsed % 60.0) as u32;
@@ -640,59 +655,64 @@ impl Render for TrainViz {
                     _ => {}
                 }
             }))
+            // Layer 1: map tiles (PolychromeSprites).
+            // Kept in its own canvas so that track paths — which GPUI always
+            // renders before PolychromeSprites within the same scene layer —
+            // can live in a later sibling canvas and thus appear on top.
             .child(
                 canvas(
-                    |_bounds, _window, _cx| {},
+                    |_b, _w, _cx| {},
                     move |bounds, (), window, _cx| {
-                        // Draw map tiles (background) as a uniform grid.
-                        // The overall grid is projected to screen once; each
-                        // cell is an equal share of that rectangle, so adjacent
-                        // tiles share exact boundaries with zero gaps.
-                        {
-                            let tg = &data.tile_grid;
-                            let (gx0, gy0) = bng_to_screen(tg.nw.0, tg.nw.1, data.bbox, bounds);
-                            let (gx1, gy1) = bng_to_screen(tg.se.0, tg.se.1, data.bbox, bounds);
-                            let tw = (gx1 - gx0) / tg.n_cols as f32;
-                            let th = (gy1 - gy0) / tg.n_rows as f32;
-                            for (row_idx, row) in tg.rows.iter().enumerate() {
-                                for (col_idx, cell) in row.iter().enumerate() {
-                                    let Some(img) = cell else { continue };
-                                    let tile_bounds = Bounds {
-                                        origin: point(
-                                            px(gx0 + col_idx as f32 * tw),
-                                            px(gy0 + row_idx as f32 * th),
-                                        ),
-                                        size: size(px(tw), px(th)),
-                                    };
-                                    window
-                                        .paint_image(tile_bounds, Corners::all(px(0.0)), img.clone(), 0, false)
-                                        .ok();
-                                }
+                        let tg = &data_tiles.tile_grid;
+                        let (gx0, gy0) = bng_to_screen(tg.nw.0, tg.nw.1, data_tiles.bbox, bounds);
+                        let (gx1, gy1) = bng_to_screen(tg.se.0, tg.se.1, data_tiles.bbox, bounds);
+                        let tw = (gx1 - gx0) / tg.n_cols as f32;
+                        let th = (gy1 - gy0) / tg.n_rows as f32;
+                        for (row_idx, row) in tg.rows.iter().enumerate() {
+                            for (col_idx, cell) in row.iter().enumerate() {
+                                let Some(img) = cell else { continue };
+                                let tile_bounds = Bounds {
+                                    origin: point(
+                                        px(gx0 + col_idx as f32 * tw),
+                                        px(gy0 + row_idx as f32 * th),
+                                    ),
+                                    size: size(px(tw), px(th)),
+                                };
+                                window
+                                    .paint_image(tile_bounds, Corners::all(px(0.0)), img.clone(), 0, false)
+                                    .ok();
                             }
                         }
-
+                    },
+                )
+                .absolute()
+                .size_full(),
+            )
+            // Layer 2: tracks and trains — all Paths, drawn in insertion order
+            // so trains (drawn last) appear on top of track lines.
+            .child(
+                canvas(
+                    |_b, _w, _cx| {},
+                    move |bounds, (), window, _cx| {
+                        let track_outer = Hsla { h: 0.0,  s: 0.0,  l: 0.08, a: 1.0 };
                         let track_inner = Hsla { h: 0.08, s: 0.95, l: 0.65, a: 1.0 };
-                        let track_outer = Hsla { h: 0.0, s: 0.0, l: 0.08, a: 0.85 };
 
-                        // Draw all route track polylines with an outline for
-                        // contrast against any map tile background.
-                        for poly in &data.route_polylines {
+                        for poly in &data_draw.route_polylines {
                             for w in poly.windows(2) {
-                                let (x0, y0) = bng_to_screen(w[0].0, w[0].1, data.bbox, bounds);
-                                let (x1, y1) = bng_to_screen(w[1].0, w[1].1, data.bbox, bounds);
+                                let (x0, y0) = bng_to_screen(w[0].0, w[0].1, data_draw.bbox, bounds);
+                                let (x1, y1) = bng_to_screen(w[1].0, w[1].1, data_draw.bbox, bounds);
                                 paint_segment(x0, y0, x1, y1, 4.5, track_outer, window);
                                 paint_segment(x0, y0, x1, y1, 2.5, track_inner, window);
                             }
                         }
 
-                        // Draw trains.
-                        if let Some(frame) = data.frames.get(frame_idx) {
+                        if let Some(frame) = data_draw.frames.get(frame_idx) {
                             for tp in &frame.trains {
-                                let Some(pts) = data.geometries.get(&tp.track_id) else { continue };
-                                let Some(al) = data.arc_lengths.get(&tp.track_id) else { continue };
+                                let Some(pts) = data_draw.geometries.get(&tp.track_id) else { continue };
+                                let Some(al)  = data_draw.arc_lengths.get(&tp.track_id) else { continue };
                                 let (bx, by) = interpolate(pts, al, tp.element_offset_m);
-                                let (sx, sy) = bng_to_screen(bx, by, data.bbox, bounds);
-                                let hue = *data.train_hues.get(&tp.train_id).unwrap_or(&0.0);
+                                let (sx, sy) = bng_to_screen(bx, by, data_draw.bbox, bounds);
+                                let hue = *data_draw.train_hues.get(&tp.train_id).unwrap_or(&0.0);
                                 let color = Hsla { h: hue, s: 0.9, l: 0.6, a: 1.0 };
                                 paint_circle(sx, sy, 7.0, gpui::white(), window);
                                 paint_circle(sx, sy, 5.5, color, window);
@@ -700,21 +720,24 @@ impl Render for TrainViz {
                         }
                     },
                 )
+                .absolute()
                 .size_full(),
             )
-            // HUD overlay (top-left) — dark translucent pill so text is
-            // readable over any map tile background.
+            // HUD — last child so it renders above both canvas layers.
+            // Explicit w() ensures the absolutely-positioned div has a computed
+            // size so GPUI lays out and paints its background and text.
             .child(
                 div()
                     .absolute()
                     .top(px(10.0))
                     .left(px(14.0))
+                    .w(px(260.0))
                     .flex()
                     .flex_col()
                     .gap(px(3.0))
                     .p(px(10.0))
-                    .rounded(px(8.0))
-                    .bg(Hsla { h: 0.0, s: 0.0, l: 0.0, a: 0.62 })
+                    .rounded_lg()
+                    .bg(Hsla { h: 0.0, s: 0.0, l: 0.0, a: 0.68 })
                     .child(
                         div()
                             .text_color(gpui::white())
@@ -723,16 +746,16 @@ impl Render for TrainViz {
                     )
                     .child(
                         div()
-                            .text_color(Hsla { h: 0.13, s: 1.0, l: 0.70, a: 1.0 })
+                            .text_color(Hsla { h: 0.13, s: 1.0, l: 0.72, a: 1.0 })
                             .text_size(px(15.0))
                             .child(elapsed_label),
                     )
                     .child(
                         div()
-                            .text_color(Hsla { h: 0.0, s: 0.0, l: 0.60, a: 1.0 })
+                            .text_color(Hsla { h: 0.0, s: 0.0, l: 0.55, a: 1.0 })
                             .text_size(px(11.0))
                             .child(format!(
-                                "frame {}/{} | {} | Space  ←→ skip",
+                                "frame {}/{} | {}  Space ←→",
                                 frame_idx + 1,
                                 n_frames,
                                 if playing { "▶" } else { "⏸" },
